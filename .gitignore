@@ -1,0 +1,37 @@
+.DS_Store
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+
+# Python
+*.pyc
+__pycache__/
+
+# Frontend build output
+frontend/dist/
+
+# Local container volumes
+postgres-data/
+prometheus-data/
+grafana-data/
+
+# Terraform local state and overrides
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+terraform.tfvars
+*.auto.tfvars
+!.auto.tfvars.example
+!terraform.tfvars.example
+
+# Local editor and OS files
+.idea/
+.vscode/

@@ -1,0 +1,9 @@
+.git
+.DS_Store
+frontend/node_modules
+frontend/dist
+backend/**/__pycache__
+backend/**/*.pyc
+prometheus-data
+grafana-data
+postgres-data

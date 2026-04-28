@@ -1,0 +1,4 @@
+services:
+  order-service:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sre_user}:${POSTGRES_PASSWORD:-sre_password}@postgres-broken:5432/${POSTGRES_DB:-sre_app}

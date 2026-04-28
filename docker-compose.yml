@@ -1,0 +1,198 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sre-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sre_app}
+      POSTGRES_USER: ${POSTGRES_USER:-sre_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sre_password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: backend/auth-service/Dockerfile
+    environment:
+      SERVICE_NAME: auth-service
+      PORT: 8001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sre_user}:${POSTGRES_PASSWORD:-sre_password}@postgres:5432/${POSTGRES_DB:-sre_app}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  user-service:
+    build:
+      context: .
+      dockerfile: backend/user-service/Dockerfile
+    environment:
+      SERVICE_NAME: user-service
+      PORT: 8002
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sre_user}:${POSTGRES_PASSWORD:-sre_password}@postgres:5432/${POSTGRES_DB:-sre_app}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  product-service:
+    build:
+      context: .
+      dockerfile: backend/product-service/Dockerfile
+    environment:
+      SERVICE_NAME: product-service
+      PORT: 8003
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sre_user}:${POSTGRES_PASSWORD:-sre_password}@postgres:5432/${POSTGRES_DB:-sre_app}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  order-service:
+    build:
+      context: .
+      dockerfile: backend/order-service/Dockerfile
+    environment:
+      SERVICE_NAME: order-service
+      PORT: 8004
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sre_user}:${POSTGRES_PASSWORD:-sre_password}@postgres:5432/${POSTGRES_DB:-sre_app}
+      PRODUCT_SERVICE_URL: http://product-service:8003
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  chat-service:
+    build:
+      context: .
+      dockerfile: backend/chat-service/Dockerfile
+    environment:
+      SERVICE_NAME: chat-service
+      PORT: 8005
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sre_user}:${POSTGRES_PASSWORD:-sre_password}@postgres:5432/${POSTGRES_DB:-sre_app}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      DEFAULT_CHAT_ROOM: operations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  prometheus:
+    image: prom/prometheus:v3.11.2
+    container_name: sre-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  grafana:
+    image: grafana/grafana:13.0.1
+    container_name: sre-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
