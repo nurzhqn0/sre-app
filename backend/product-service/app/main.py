@@ -19,15 +19,19 @@ def normalize_product(product: dict) -> dict:
     return product
 
 
+def run_health_check():
+    check_database(settings.database_url)
+
+
 @app.get("/health")
 def health():
-    check_database(settings.database_url)
+    run_health_check()
     return {"service": settings.service_name, "status": "ok"}
 
 
 @app.get("/metrics")
 def metrics():
-    return metrics_response()
+    return metrics_response(settings.service_name, run_health_check)
 
 
 @app.get("/products")

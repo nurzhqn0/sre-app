@@ -39,18 +39,6 @@ resource "digitalocean_firewall" "sre_app" {
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
 
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "3000"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "9090"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-
   outbound_rule {
     protocol              = "tcp"
     port_range            = "1-65535"

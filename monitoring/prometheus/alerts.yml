@@ -1,0 +1,20 @@
+groups:
+  - name: service-health
+    rules:
+      - alert: ServiceHealthUnhealthy
+        expr: service_health_status == 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service health check is failing"
+          description: "{{ $labels.service }} health check is unhealthy."
+
+      - alert: OrderServiceHealthUnhealthy
+        expr: service_health_status{service="order-service"} == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Order service health is failing"
+          description: "order-service is unhealthy and should be investigated immediately."

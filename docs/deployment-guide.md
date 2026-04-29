@@ -27,6 +27,11 @@ docker compose ps
    - Grafana: `http://localhost:3000`
    - Prometheus: `http://localhost:9090`
 
+Note:
+- Grafana and Prometheus are bound to `127.0.0.1`
+- they are reachable locally on the machine running Docker Compose
+- they are not exposed to other hosts through the network interface
+
 ## Service Health Validation
 
 Run these checks after the stack is healthy:
@@ -76,6 +81,11 @@ Default Swarm published ports are:
 - `3001` for Grafana
 - `9091` for Prometheus
 
+For remote server deployments:
+- keep frontend public only if needed
+- keep Grafana and Prometheus private behind the Terraform firewall
+- access monitoring through SSH port forwarding instead of opening those ports in the browser directly
+
 If these are also occupied, deploy with alternate published ports:
 
 ```bash
@@ -99,6 +109,16 @@ Alternative example when there is a port conflict:
 - `8081` for frontend
 - `3002` for Grafana
 - `9092` for Prometheus
+
+Recommended monitoring access on a remote Swarm node:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 -L 9091:127.0.0.1:9091 root@PUBLIC_IP
+```
+
+Then open locally:
+- `http://localhost:3001`
+- `http://localhost:9091`
 
 ### Remove
 
@@ -181,7 +201,22 @@ docker swarm init
 docker compose up -d --build
 ```
 
-6. Confirm ports `80`, `3000`, and `9090` are reachable from the public IP.
+6. Confirm the frontend is reachable on `http://PUBLIC_IP`.
+7. Access monitoring only through SSH tunneling:
+
+```bash
+ssh -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 root@PUBLIC_IP
+```
+
+8. Open locally in your browser:
+   - `http://localhost:3000`
+   - `http://localhost:9090`
+
+If you deploy with Docker Stack on the Droplet instead of Docker Compose, use:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 -L 9091:127.0.0.1:9091 root@PUBLIC_IP
+```
 
 ## Screenshot Notes
 

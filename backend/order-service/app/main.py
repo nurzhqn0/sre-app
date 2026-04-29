@@ -49,15 +49,19 @@ def fetch_product(product_id: str) -> dict:
     return response.json()
 
 
+def run_health_check():
+    check_database(settings.database_url)
+
+
 @app.get("/health")
 def health():
-    check_database(settings.database_url)
+    run_health_check()
     return {"service": settings.service_name, "status": "ok"}
 
 
 @app.get("/metrics")
 def metrics():
-    return metrics_response()
+    return metrics_response(settings.service_name, run_health_check)
 
 
 @app.post("/orders", status_code=status.HTTP_201_CREATED)

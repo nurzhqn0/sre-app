@@ -103,6 +103,8 @@ services:
     configs:
       - source: prometheus_config
         target: /etc/prometheus/prometheus.yml
+      - source: prometheus_alerts
+        target: /etc/prometheus/alerts.yml
     ports:
       - target: 9090
         published: ${STACK_PROMETHEUS_PORT:-9091}
@@ -169,6 +171,8 @@ configs:
     file: ./postgres/init.sql
   prometheus_config:
     file: ./monitoring/prometheus/prometheus.yml
+  prometheus_alerts:
+    file: ./monitoring/prometheus/alerts.yml
   grafana_datasource:
     file: ./monitoring/grafana/provisioning/datasources/datasource.yml
   grafana_dashboard_provider:

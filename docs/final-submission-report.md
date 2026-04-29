@@ -53,7 +53,11 @@ Terraform files included:
 
 Provisioned resources:
 - DigitalOcean Droplet
-- DigitalOcean firewall with inbound rules for ports `22`, `80`, `3000`, and `9090`
+- DigitalOcean firewall with inbound rules for ports `22` and `80`
+
+Monitoring access model:
+- Grafana and Prometheus are intended to be accessed through SSH tunneling
+- monitoring ports are not exposed publicly in the firewall policy
 
 ## Incident Response Summary
 

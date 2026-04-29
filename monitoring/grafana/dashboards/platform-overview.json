@@ -72,12 +72,12 @@
       },
       "targets": [
         {
-          "expr": "avg(up{job=\"order-service\"})",
+          "expr": "max(service_health_status{service=\"order-service\"})",
           "legendFormat": "order-service",
           "refId": "A"
         }
       ],
-      "title": "Order Service Availability",
+      "title": "Order Service Health",
       "type": "stat"
     },
     {
@@ -286,13 +286,13 @@
       },
       "targets": [
         {
-          "expr": "up{job=~\"auth-service|user-service|product-service|order-service|chat-service\"}",
+          "expr": "service_health_status{service=~\"auth-service|user-service|product-service|order-service|chat-service\"}",
           "format": "table",
           "instant": true,
           "refId": "A"
         }
       ],
-      "title": "Target Health",
+      "title": "Service Health",
       "transformations": [
         {
           "id": "organize",
@@ -305,7 +305,7 @@
               "job": false
             },
             "renameByName": {
-              "Value #A": "up"
+              "Value #A": "health_status"
             }
           }
         }

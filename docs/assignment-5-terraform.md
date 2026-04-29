@@ -19,8 +19,12 @@ Provision the deployment host using Terraform in a reproducible way on DigitalOc
 
 - `22` for SSH
 - `80` for the frontend
-- `3000` for Grafana
-- `9090` for Prometheus
+
+## Monitoring Access Model
+
+- Grafana and Prometheus are not intended to be publicly exposed
+- monitoring access is performed through SSH port forwarding
+- the Terraform firewall only exposes SSH and HTTP publicly
 
 ## Commands
 

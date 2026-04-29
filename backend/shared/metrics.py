@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import time
+from typing import Callable
 
 from fastapi import Response
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -18,6 +19,12 @@ REQUEST_LATENCY = Histogram(
     "service_http_request_duration_seconds",
     "HTTP request duration in seconds.",
     ["service", "method", "path"],
+)
+
+SERVICE_HEALTH_STATUS = Gauge(
+    "service_health_status",
+    "Logical health state for a service. 1 means healthy, 0 means unhealthy.",
+    ["service"],
 )
 
 
@@ -46,5 +53,17 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def metrics_response() -> Response:
+def metrics_response(
+    service_name: str,
+    health_check: Callable[[], None] | None = None,
+) -> Response:
+    if health_check is not None:
+        try:
+            health_check()
+            SERVICE_HEALTH_STATUS.labels(service=service_name).set(1)
+        except Exception:
+            SERVICE_HEALTH_STATUS.labels(service=service_name).set(0)
+    else:
+        SERVICE_HEALTH_STATUS.labels(service=service_name).set(1)
+
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

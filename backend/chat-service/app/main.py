@@ -58,6 +58,10 @@ def normalize_message(message: dict) -> dict:
     return normalized
 
 
+def run_health_check():
+    check_database(settings.database_url)
+
+
 def store_message(room: str, user_id: str, username: str, content: str) -> dict:
     message_id = str(uuid4())
     with get_connection(settings.database_url) as connection:
@@ -77,13 +81,13 @@ def store_message(room: str, user_id: str, username: str, content: str) -> dict:
 
 @app.get("/health")
 def health():
-    check_database(settings.database_url)
+    run_health_check()
     return {"service": settings.service_name, "status": "ok"}
 
 
 @app.get("/metrics")
 def metrics():
-    return metrics_response()
+    return metrics_response(settings.service_name, run_health_check)
 
 
 @app.get("/rooms/{room}/messages")

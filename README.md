@@ -15,8 +15,8 @@ This project implements a microservices-based e-commerce style platform for an S
 - `order-service`: order creation and listing
 - `chat-service`: WebSocket chat and message history
 - `postgres`: shared relational database
-- `prometheus`: metrics scraping on port `9090`
-- `grafana`: dashboards on port `3000`
+- `prometheus`: metrics scraping on local port `9090`
+- `grafana`: dashboards on local port `3000`
 
 ## Quick Start
 
@@ -31,6 +31,10 @@ docker compose up -d --build
    - Frontend: [http://localhost](http://localhost)
    - Grafana: [http://localhost:3000](http://localhost:3000)
    - Prometheus: [http://localhost:9090](http://localhost:9090)
+
+Monitoring note:
+- Grafana and Prometheus are bound to `127.0.0.1`
+- they are reachable only on the local machine unless you forward them over SSH
 
 4. Stop the stack:
 
@@ -76,6 +80,11 @@ Default Swarm published ports are set to avoid common local conflicts:
 - Grafana: `3001`
 - Prometheus: `9091`
 
+When the stack is deployed on a remote server, keep monitoring private:
+- expose the frontend publicly as needed
+- keep Grafana and Prometheus behind the Terraform firewall
+- access monitoring only through an SSH tunnel to `127.0.0.1:3001` and `127.0.0.1:9091`
+
 If you still need different ports, override them during deployment:
 
 ```bash
@@ -89,7 +98,17 @@ docker stack services sre-app
 docker stack ps sre-app
 ```
 
-5. Remove the stack when finished:
+5. If the stack is running on a remote host, create an SSH tunnel for monitoring:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 -L 9091:127.0.0.1:9091 root@YOUR_PUBLIC_IP
+```
+
+Then open locally:
+- `http://localhost:3001`
+- `http://localhost:9091`
+
+6. Remove the stack when finished:
 
 ```bash
 docker stack rm sre-app
@@ -118,8 +137,11 @@ Provisioned resources:
 Opened ports:
 - `22` for SSH
 - `80` for the frontend
-- `3000` for Grafana
-- `9090` for Prometheus
+
+Monitoring access policy:
+- Grafana and Prometheus are intended to be accessed only through an SSH tunnel
+- the Terraform firewall does not expose monitoring ports publicly
+- Docker Compose binds monitoring ports to `127.0.0.1` on the host
 
 Basic workflow:
 
@@ -142,7 +164,16 @@ After Terraform creates the Droplet:
 2. Install Docker Engine and Docker Compose.
 3. Clone this repository.
 4. Run `docker compose up -d --build`.
-5. Verify access on ports `80`, `3000`, and `9090`.
+5. Verify public access on port `80`.
+6. Use SSH tunneling for monitoring access:
+
+```bash
+ssh -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 root@YOUR_PUBLIC_IP
+```
+
+7. Open locally in your browser:
+   - `http://localhost:3000`
+   - `http://localhost:9090`
 
 ## Default Demo Flow
 

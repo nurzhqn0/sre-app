@@ -18,15 +18,19 @@ def current_user(authorization: Annotated[str | None, Header()] = None):
     return require_user_claims(settings.jwt_secret_key, authorization)
 
 
+def run_health_check():
+    check_database(settings.database_url)
+
+
 @app.get("/health")
 def health():
-    check_database(settings.database_url)
+    run_health_check()
     return {"service": settings.service_name, "status": "ok"}
 
 
 @app.get("/metrics")
 def metrics():
-    return metrics_response()
+    return metrics_response(settings.service_name, run_health_check)
 
 
 @app.get("/me")
