@@ -135,7 +135,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(service_http_requests_total{service=\"order-service\",status=~\"5..\"}[5m]))",
+          "expr": "sum(rate(service_http_requests_total{service=\"order-service\",status=~\"5..\"}[5m])) or vector(0)",
           "legendFormat": "order-service 5xx",
           "refId": "A"
         }
@@ -257,7 +257,7 @@
       },
       "targets": [
         {
-          "expr": "sum(changes(container_start_time_seconds{name=~\".*order-service.*\"}[30m]))",
+          "expr": "sum(changes(container_start_time_seconds{name=~\".*order-service.*\"}[30m])) or vector(0)",
           "legendFormat": "order-service restarts",
           "refId": "A"
         }
@@ -398,7 +398,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (rate(service_http_requests_total{status=~\"5..\"}[5m]))",
+          "expr": "sum by (service) (rate(service_http_requests_total{status=~\"5..\"}[5m])) or on() vector(0)",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -610,7 +610,7 @@
       },
       "targets": [
         {
-          "expr": "changes(container_start_time_seconds{name=~\".*auth-service.*|.*user-service.*|.*product-service.*|.*order-service.*|.*chat-service.*\"}[30m])",
+          "expr": "changes(container_start_time_seconds{name=~\".*auth-service.*|.*user-service.*|.*product-service.*|.*order-service.*|.*chat-service.*\"}[30m]) or on() vector(0)",
           "format": "table",
           "instant": true,
           "refId": "A"

@@ -63,7 +63,7 @@ Prometheus scrapes service metrics and cAdvisor container metrics. The Prometheu
 - cAdvisor CPU, memory, and container start-time metrics
 - alert rules from `monitoring/prometheus/alerts.yml`
 
-cAdvisor is pinned to `ghcr.io/google/cadvisor:v0.56.2`, matching the current GitHub release listing checked on 2026-05-06.
+cAdvisor is pinned to `ghcr.io/google/cadvisor:0.56.2`, matching the current GitHub release listing checked on 2026-05-06. The GitHub release is named `v0.56.2`, while the GHCR image tag omits the `v` prefix.
 
 Implemented alert categories:
 

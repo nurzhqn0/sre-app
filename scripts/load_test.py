@@ -57,6 +57,8 @@ def request_json(
         data = exc.read().decode("utf-8")
         parsed = json.loads(data) if data else {}
         return exc.code, parsed
+    except (ConnectionResetError, TimeoutError, urllib.error.URLError, OSError) as exc:
+        return 0, {"error": str(exc), "url": url}
 
 
 def register_or_login(base_url: str, username: str, password: str) -> str:
@@ -69,7 +71,10 @@ def register_or_login(base_url: str, username: str, password: str) -> str:
     if status == 201:
         return str(payload["access_token"])
     if status != 409:
-        raise RuntimeError(f"registration failed with status {status}: {payload}")
+        raise RuntimeError(
+            f"registration failed with status {status}: {payload}. "
+            "Check --base-url; Swarm publishes the frontend on http://localhost:8080."
+        )
 
     status, payload = request_json(
         "POST",
@@ -77,7 +82,10 @@ def register_or_login(base_url: str, username: str, password: str) -> str:
         {"username": username, "password": password},
     )
     if status != 200:
-        raise RuntimeError(f"login failed with status {status}: {payload}")
+        raise RuntimeError(
+            f"login failed with status {status}: {payload}. "
+            "Check --base-url; Swarm publishes the frontend on http://localhost:8080."
+        )
     return str(payload["access_token"])
 
 

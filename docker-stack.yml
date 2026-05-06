@@ -101,7 +101,7 @@ services:
     volumes:
       - prometheus-data:/prometheus
     configs:
-      - source: prometheus_config
+      - source: prometheus_stack_config
         target: /etc/prometheus/prometheus.yml
       - source: prometheus_alerts
         target: /etc/prometheus/alerts.yml
@@ -118,7 +118,7 @@ services:
         condition: on-failure
 
   cadvisor:
-    image: ghcr.io/google/cadvisor:v0.56.2
+    image: ghcr.io/google/cadvisor:0.56.2
     command:
       - --docker_only=true
       - --store_container_labels=false
@@ -127,7 +127,6 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
     networks:
       - app-network
     deploy:
@@ -147,7 +146,7 @@ services:
         target: /etc/grafana/provisioning/datasources/datasource.yml
       - source: grafana_dashboard_provider
         target: /etc/grafana/provisioning/dashboards/dashboard.yml
-      - source: grafana_platform_dashboard
+      - source: grafana_platform_dashboard_v2
         target: /var/lib/grafana/dashboards/platform-overview.json
     ports:
       - target: 3000
@@ -189,11 +188,13 @@ configs:
     file: ./postgres/init.sql
   prometheus_config:
     file: ./monitoring/prometheus/prometheus.yml
+  prometheus_stack_config:
+    file: ./monitoring/prometheus/prometheus-stack.yml
   prometheus_alerts:
     file: ./monitoring/prometheus/alerts.yml
   grafana_datasource:
     file: ./monitoring/grafana/provisioning/datasources/datasource.yml
   grafana_dashboard_provider:
     file: ./monitoring/grafana/provisioning/dashboards/dashboard.yml
-  grafana_platform_dashboard:
+  grafana_platform_dashboard_v2:
     file: ./monitoring/grafana/dashboards/platform-overview.json

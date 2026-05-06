@@ -157,7 +157,7 @@ services:
       - app-network
 
   cadvisor:
-    image: ghcr.io/google/cadvisor:v0.56.2
+    image: ghcr.io/google/cadvisor:0.56.2
     container_name: sre-cadvisor
     restart: unless-stopped
     privileged: true
@@ -169,7 +169,6 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
     networks:
       - app-network
 
