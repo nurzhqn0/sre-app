@@ -1,0 +1,31 @@
+services:
+  order-service:
+    deploy:
+      replicas: 2
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+  product-service:
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+        limits:
+          cpus: "0.50"
+          memory: 256M
+
+  postgres:
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+        limits:
+          cpus: "1.00"
+          memory: 1G

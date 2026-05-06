@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: sre-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sre_app}
       POSTGRES_USER: ${POSTGRES_USER:-sre_user}
@@ -21,6 +22,7 @@ services:
     build:
       context: .
       dockerfile: backend/auth-service/Dockerfile
+    restart: unless-stopped
     environment:
       SERVICE_NAME: auth-service
       PORT: 8001
@@ -41,6 +43,7 @@ services:
     build:
       context: .
       dockerfile: backend/user-service/Dockerfile
+    restart: unless-stopped
     environment:
       SERVICE_NAME: user-service
       PORT: 8002
@@ -61,6 +64,7 @@ services:
     build:
       context: .
       dockerfile: backend/product-service/Dockerfile
+    restart: unless-stopped
     environment:
       SERVICE_NAME: product-service
       PORT: 8003
@@ -81,6 +85,7 @@ services:
     build:
       context: .
       dockerfile: backend/order-service/Dockerfile
+    restart: unless-stopped
     environment:
       SERVICE_NAME: order-service
       PORT: 8004
@@ -104,6 +109,7 @@ services:
     build:
       context: .
       dockerfile: backend/chat-service/Dockerfile
+    restart: unless-stopped
     environment:
       SERVICE_NAME: chat-service
       PORT: 8005
@@ -124,6 +130,7 @@ services:
   prometheus:
     image: prom/prometheus:v3.11.2
     container_name: sre-prometheus
+    restart: unless-stopped
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -144,12 +151,32 @@ services:
         condition: service_healthy
       chat-service:
         condition: service_healthy
+      cadvisor:
+        condition: service_started
+    networks:
+      - app-network
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.56.2
+    container_name: sre-cadvisor
+    restart: unless-stopped
+    privileged: true
+    command:
+      - --docker_only=true
+      - --store_container_labels=false
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
     networks:
       - app-network
 
   grafana:
     image: grafana/grafana:13.0.1
     container_name: sre-grafana
+    restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
@@ -168,6 +195,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    restart: unless-stopped
     ports:
       - "80:80"
     depends_on:

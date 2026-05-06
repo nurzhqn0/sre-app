@@ -10,6 +10,15 @@ groups:
           summary: "Service health check is failing"
           description: "{{ $labels.service }} health check is unhealthy."
 
+      - alert: ServiceTargetDown
+        expr: up{job=~"auth-service|user-service|product-service|order-service|chat-service"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service target is down"
+          description: "Prometheus cannot scrape {{ $labels.job }} at {{ $labels.instance }}."
+
       - alert: OrderServiceHealthUnhealthy
         expr: service_health_status{service="order-service"} == 0
         for: 15s
@@ -18,3 +27,50 @@ groups:
         annotations:
           summary: "Order service health is failing"
           description: "order-service is unhealthy and should be investigated immediately."
+
+      - alert: OrderServiceTargetDown
+        expr: up{job="order-service"} == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Order service scrape target is down"
+          description: "Prometheus cannot scrape order-service metrics."
+
+  - name: service-performance
+    rules:
+      - alert: ServiceHigh5xxRate
+        expr: sum by (service) (rate(service_http_requests_total{status=~"5.."}[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service 5xx error rate is elevated"
+          description: "{{ $labels.service }} is returning more than 0.05 5xx responses per second."
+
+      - alert: ServiceHighP95Latency
+        expr: histogram_quantile(0.95, sum by (le, service) (rate(service_http_request_duration_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service p95 latency is high"
+          description: "{{ $labels.service }} p95 latency is above 1 second."
+
+      - alert: OrderServiceHighCpuUsage
+        expr: sum(rate(container_cpu_usage_seconds_total{name=~".*order-service.*"}[5m])) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Order service CPU usage is high"
+          description: "order-service container CPU usage is above 80 percent for 5 minutes."
+
+      - alert: ContainerRestartDetected
+        expr: changes(container_start_time_seconds{name=~".*sre-.*|.*_.*"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Container restart detected"
+          description: "{{ $labels.name }} restarted during the last 10 minutes."

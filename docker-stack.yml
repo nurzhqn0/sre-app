@@ -117,6 +117,24 @@ services:
       restart_policy:
         condition: on-failure
 
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.56.2
+    command:
+      - --docker_only=true
+      - --store_container_labels=false
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - app-network
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+
   grafana:
     image: grafana/grafana:13.0.1
     environment:

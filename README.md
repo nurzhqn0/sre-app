@@ -17,6 +17,7 @@ This project implements a microservices-based e-commerce style platform for an S
 - `postgres`: shared relational database
 - `prometheus`: metrics scraping on local port `9090`
 - `grafana`: dashboards on local port `3000`
+- `cadvisor`: container CPU, memory, and restart signal metrics for Prometheus
 
 ## Quick Start
 
@@ -25,6 +26,12 @@ This project implements a microservices-based e-commerce style platform for an S
 
 ```bash
 docker compose up -d --build
+```
+
+Pre-deployment validation for the Assignment 6 automation workflow:
+
+```bash
+python3 scripts/validate_compose_config.py -f docker-compose.yml
 ```
 
 3. Open the application:
@@ -209,6 +216,7 @@ docker stack deploy -c docker-stack.yml -c docker-stack.incident.yml sre-app
 
 - Setup and deployment: [docs/deployment-guide.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/deployment-guide.md)
 - Security guidance: [docs/security-guidelines.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/security-guidelines.md)
+- Assignment 6 automation and capacity planning: [docs/assignment-6-automation-capacity.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/assignment-6-automation-capacity.md)
 - Terraform explanation: [docs/assignment-5-terraform.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/assignment-5-terraform.md)
 - Incident response report: [docs/incident-report.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/incident-report.md)
 - Postmortem: [docs/postmortem.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/postmortem.md)
