@@ -77,7 +77,7 @@ docker stack deploy -c docker-stack.yml sre-app
 
 Default Swarm published ports are:
 
-- `8080` for frontend
+- `80` for frontend
 - `3001` for Grafana
 - `9091` for Prometheus
 
@@ -101,7 +101,7 @@ docker service ls
 ```
 
 Expected published ports by default:
-- `8080` for frontend
+- `80` for frontend
 - `3001` for Grafana
 - `9091` for Prometheus
 

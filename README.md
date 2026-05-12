@@ -81,9 +81,9 @@ docker swarm init
 docker stack deploy -c docker-stack.yml sre-app
 ```
 
-Default Swarm published ports are set to avoid common local conflicts:
+Default Swarm published ports are:
 
-- frontend: `8080`
+- frontend: `80`
 - Grafana: `3001`
 - Prometheus: `9091`
 
@@ -92,7 +92,7 @@ When the stack is deployed on a remote server, keep monitoring private:
 - keep Grafana and Prometheus behind the Terraform firewall
 - access monitoring only through an SSH tunnel to `127.0.0.1:3001` and `127.0.0.1:9091`
 
-If you still need different ports, override them during deployment:
+If you need different ports, override them during deployment:
 
 ```bash
 STACK_HTTP_PORT=8081 STACK_GRAFANA_PORT=3002 STACK_PROMETHEUS_PORT=9092 docker stack deploy -c docker-stack.yml sre-app
@@ -170,7 +170,7 @@ After Terraform creates the Droplet:
 1. SSH into the new server.
 2. Install Docker Engine and Docker Compose.
 3. Clone this repository.
-4. Run `docker compose up -d --build`.
+4. Run `docker compose up -d --build` or `docker stack deploy -c docker-stack.yml sre-app`.
 5. Verify public access on port `80`.
 6. Use SSH tunneling for monitoring access:
 

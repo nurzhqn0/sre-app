@@ -73,7 +73,7 @@ def register_or_login(base_url: str, username: str, password: str) -> str:
     if status != 409:
         raise RuntimeError(
             f"registration failed with status {status}: {payload}. "
-            "Check --base-url; Swarm publishes the frontend on http://localhost:8080."
+            "Check --base-url; Swarm publishes the frontend on http://localhost."
         )
 
     status, payload = request_json(
@@ -84,7 +84,7 @@ def register_or_login(base_url: str, username: str, password: str) -> str:
     if status != 200:
         raise RuntimeError(
             f"login failed with status {status}: {payload}. "
-            "Check --base-url; Swarm publishes the frontend on http://localhost:8080."
+            "Check --base-url; Swarm publishes the frontend on http://localhost."
         )
     return str(payload["access_token"])
 

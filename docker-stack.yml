@@ -164,7 +164,7 @@ services:
     image: ${STACK_IMAGE_PREFIX:-sre-app}/frontend:latest
     ports:
       - target: 80
-        published: ${STACK_HTTP_PORT:-8080}
+        published: ${STACK_HTTP_PORT:-80}
         protocol: tcp
         mode: ingress
     networks:

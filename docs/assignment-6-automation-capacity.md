@@ -206,7 +206,7 @@ Validation commands:
 ```bash
 docker stack services sre-app
 docker stack ps sre-app
-python3 scripts/load_test.py --base-url http://localhost:8080 --users 20 --requests 200
+python3 scripts/load_test.py --base-url http://localhost --users 20 --requests 200
 ```
 
 Expected outcome:
