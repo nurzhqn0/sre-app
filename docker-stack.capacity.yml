@@ -10,6 +10,17 @@ services:
           cpus: "1.00"
           memory: 512M
 
+  payment-service:
+    deploy:
+      replicas: 2
+      resources:
+        reservations:
+          cpus: "0.15"
+          memory: 192M
+        limits:
+          cpus: "0.75"
+          memory: 384M
+
   product-service:
     deploy:
       resources:

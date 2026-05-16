@@ -127,6 +127,29 @@ services:
     networks:
       - app-network
 
+  payment-service:
+    build:
+      context: .
+      dockerfile: backend/payment-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      SERVICE_NAME: payment-service
+      PORT: 8006
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sre_user}:${POSTGRES_PASSWORD:-sre_password}@postgres:5432/${POSTGRES_DB:-sre_app}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/health').read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
   prometheus:
     image: prom/prometheus:v3.11.2
     container_name: sre-prometheus
@@ -150,6 +173,8 @@ services:
       order-service:
         condition: service_healthy
       chat-service:
+        condition: service_healthy
+      payment-service:
         condition: service_healthy
       cadvisor:
         condition: service_started
@@ -207,6 +232,8 @@ services:
       order-service:
         condition: service_healthy
       chat-service:
+        condition: service_healthy
+      payment-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]

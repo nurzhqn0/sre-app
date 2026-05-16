@@ -93,6 +93,20 @@ services:
       restart_policy:
         condition: on-failure
 
+  payment-service:
+    image: ${STACK_IMAGE_PREFIX:-sre-app}/payment-service:latest
+    environment:
+      SERVICE_NAME: payment-service
+      PORT: 8006
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sre_user}:${POSTGRES_PASSWORD:-sre_password}@postgres:5432/${POSTGRES_DB:-sre_app}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+    networks:
+      - app-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
   prometheus:
     image: prom/prometheus:v3.11.2
     command:
