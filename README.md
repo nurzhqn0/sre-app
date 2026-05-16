@@ -4,6 +4,30 @@ End-term SRE project with six FastAPI microservices, React/Nginx frontend, Postg
 
 GitHub: <https://github.com/nurzhqn0/sre-app.git>
 
+Live deployment:
+
+- Domain: <http://sre.nurzhqn.com/>
+- Direct IP: <http://209.38.220.131/>
+- Current platform: Kubernetes on k3s with Traefik Ingress
+
+Current Kubernetes deployment:
+
+- Namespace: `sre-app`
+- Cluster: single-node k3s VPS
+- Ingress: `frontend` routes `sre.nurzhqn.com` on HTTP port `80`
+- Frontend service: `ClusterIP` behind Traefik
+- Prometheus and Grafana are private and must be accessed through SSH tunnels, not public NodePorts
+- Running pods: `auth-service`, `user-service`, `product-service`, `order-service`, `payment-service`, `chat-service`, `frontend`, `postgres`, `prometheus`, `grafana`
+- Verified from VPS with `curl -I http://209.38.220.131` returning `HTTP/1.1 200 OK`
+
+Check current deployment:
+
+```bash
+kubectl -n sre-app get pods
+kubectl -n sre-app get svc
+kubectl -n sre-app get ingress
+```
+
 ## Services
 
 | Service | Purpose | Port |
@@ -302,6 +326,15 @@ docker compose down
 
 ### Ansible on Linux VPS with k3s
 
+Current live VPS:
+
+- Domain: <http://sre.nurzhqn.com/>
+- Direct IP: <http://209.38.220.131/>
+- Server IP: `209.38.220.131`
+- Kubernetes: k3s
+- Ingress: Traefik routes HTTP port `80` to `frontend`
+- Status: deployed and verified with all core pods `1/1 Running`
+
 If Kubernetes pods show `ImagePullBackOff` or `ErrImagePull` for images like `sre-app/auth-service:latest`, k3s cannot see the local Docker images.
 
 On the VPS:
@@ -349,13 +382,60 @@ kubectl -n sre-app get pods
 Expose frontend on a VPS:
 
 ```bash
-kubectl -n sre-app patch svc frontend -p '{"spec":{"type":"NodePort","ports":[{"port":80,"targetPort":80,"nodePort":30080}]}}'
+cat > k8s/50-frontend-ingress.yaml <<'EOF'
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: sre-app
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: sre.nurzhqn.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+EOF
+
+kubectl -n sre-app patch svc frontend -p '{"spec":{"type":"ClusterIP","ports":[{"name":"http","port":80,"targetPort":80}]}}'
+kubectl apply -f k8s/50-frontend-ingress.yaml
 ```
 
 Open:
 
 ```text
-http://YOUR_SERVER_IP:30080
+http://sre.nurzhqn.com/
+http://209.38.220.131/
+```
+
+DNS requirement:
+
+```text
+A record: sre.nurzhqn.com -> 209.38.220.131
+```
+
+DigitalOcean firewall must allow inbound TCP `80`.
+
+Do not expose Grafana or Prometheus publicly. Use SSH tunnels from your laptop:
+
+```bash
+ssh \
+  -L 3000:10.43.33.217:3000 \
+  -L 9090:10.43.157.187:9090 \
+  root@209.38.220.131
+```
+
+Then open locally:
+
+```text
+http://localhost:3000
+http://localhost:9090
 ```
 
 ## Terraform

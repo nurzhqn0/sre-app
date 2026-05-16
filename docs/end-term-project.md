@@ -8,6 +8,21 @@ The project demonstrates the full SRE lifecycle: service design, containerizatio
 
 Git repository: <https://github.com/nurzhqn0/sre-app.git>
 
+Live deployment:
+
+- Domain: <http://sre.nurzhqn.com/>
+- Direct IP: <http://209.38.220.131/>
+- Current platform: Kubernetes on k3s with Traefik Ingress
+
+Current Kubernetes deployment state:
+
+- namespace: `sre-app`
+- cluster: single-node k3s VPS
+- ingress: `frontend` routes `sre.nurzhqn.com` on HTTP port `80`
+- frontend service: internal `ClusterIP` behind Traefik
+- running pods: `auth-service`, `user-service`, `product-service`, `order-service`, `payment-service`, `chat-service`, `frontend`, `postgres`, `prometheus`, and `grafana`
+- verification: `curl -I http://209.38.220.131` returned `HTTP/1.1 200 OK` from the VPS
+
 ## 2. Objectives
 
 - Deploy a distributed microservices architecture with six backend services.
@@ -40,6 +55,46 @@ Supporting components:
 - `prometheus`: metrics collection and alert evaluation.
 - `grafana`: dashboard visualization.
 - `cadvisor`: container CPU, memory, and restart metrics for Docker Compose and Swarm.
+
+## 3.1 Ports and Access
+
+| Component | Internal Port | Docker Compose Access | Docker Swarm Access | Kubernetes Access | Live VPS Access |
+| --- | ---: | --- | --- | --- | --- |
+| `frontend` | `80` | `http://localhost` | `http://SERVER_IP` or `STACK_HTTP_PORT` | Ingress/Service port `80` | `http://sre.nurzhqn.com/`, `http://209.38.220.131/` |
+| `auth-service` | `8001` | via frontend `/api/auth/` | internal overlay network | `ClusterIP` `8001` | internal only |
+| `user-service` | `8002` | via frontend `/api/users/` | internal overlay network | `ClusterIP` `8002` | internal only |
+| `product-service` | `8003` | via frontend `/api/products/` | internal overlay network | `ClusterIP` `8003` | internal only |
+| `order-service` | `8004` | via frontend `/api/orders/` | internal overlay network | `ClusterIP` `8004` | internal only |
+| `chat-service` | `8005` | via frontend `/api/chat/` and `/ws/chat` | internal overlay network | `ClusterIP` `8005` | internal only |
+| `payment-service` | `8006` | via frontend `/api/payments/` | internal overlay network | `ClusterIP` `8006` | internal only |
+| `postgres` | `5432` | internal Docker network | internal overlay network | `ClusterIP` `5432` | internal only |
+| `prometheus` | `9090` | `http://localhost:9090` | private via SSH tunnel to Swarm port `9091` | `ClusterIP` `9090`, access by SSH tunnel/port-forward only | private only |
+| `grafana` | `3000` | `http://localhost:3000` | private via SSH tunnel to Swarm port `3001` | `ClusterIP` `3000`, access by SSH tunnel/port-forward only | private only |
+| `cadvisor` | `8080` | internal Prometheus scrape target | internal/global Swarm scrape target | optional manifest only | not required |
+
+Live VPS firewall:
+
+- `22/tcp`: SSH
+- `80/tcp`: frontend through Traefik Ingress
+- Grafana and Prometheus are not exposed publicly
+
+Recommended production-style access:
+
+- expose only frontend on `80/tcp`
+- keep Grafana and Prometheus private
+- access monitoring from the laptop through SSH tunnels:
+
+```bash
+ssh \
+  -L 3000:10.43.33.217:3000 \
+  -L 9090:10.43.157.187:9090 \
+  root@209.38.220.131
+```
+
+After opening the tunnel, use:
+
+- Grafana: `http://localhost:3000`
+- Prometheus: `http://localhost:9090`
 
 ## 4. Architecture
 
@@ -122,6 +177,13 @@ kubectl -n sre-app port-forward svc/prometheus 9090:9090
 kubectl -n sre-app port-forward svc/grafana 3000:3000
 ```
 
+Live VPS access:
+
+- <http://sre.nurzhqn.com/>
+- <http://209.38.220.131/>
+
+The live server uses k3s and Traefik Ingress. The `frontend` service stays internal as `ClusterIP`, while HTTP port `80` is routed through `k8s/50-frontend-ingress.yaml`.
+
 ## 6. Infrastructure as Code
 
 Terraform files in `infra/terraform/` provision a DigitalOcean droplet and firewall. The firewall exposes SSH and frontend HTTP while keeping monitoring private for SSH tunnel access.
@@ -193,6 +255,7 @@ Grafana configuration:
 - `monitoring/grafana/provisioning/datasources/datasource.yml`
 - `monitoring/grafana/provisioning/dashboards/dashboard.yml`
 - `monitoring/grafana/dashboards/platform-overview.json`
+- `k8s/45-grafana-dashboard.yaml` provisions the same dashboard in Kubernetes Grafana.
 
 Alert coverage includes:
 
