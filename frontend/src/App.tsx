@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import './App.css'
 
 type AuthMode = 'login' | 'register'
-type View = 'products' | 'orders' | 'chat' | 'status'
+type View = 'products' | 'orders' | 'payments' | 'chat' | 'status'
 
 type User = {
   id: string
@@ -33,6 +33,15 @@ type Order = {
   created_at: string
 }
 
+type Payment = {
+  id: string
+  order_id: string
+  amount: number
+  method: 'card' | 'cash' | 'demo'
+  status: string
+  created_at: string
+}
+
 type ChatMessage = {
   id: string
   room: string
@@ -54,6 +63,7 @@ const serviceEndpoints = [
   { key: 'product-service', path: '/api/products/health' },
   { key: 'order-service', path: '/api/orders/health' },
   { key: 'chat-service', path: '/api/chat/health' },
+  { key: 'payment-service', path: '/api/payments/health' },
 ] as const
 
 async function requestJson<T>(
@@ -89,6 +99,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [serviceHealth, setServiceHealth] = useState<ServiceHealth[]>([])
   const [statusMessage, setStatusMessage] = useState('Platform initialized. Register or log in to begin.')
@@ -100,6 +111,10 @@ function App() {
   const [orderForm, setOrderForm] = useState({
     productId: '',
     quantity: 1,
+  })
+  const [paymentForm, setPaymentForm] = useState({
+    orderId: '',
+    method: 'demo' as Payment['method'],
   })
   const [room, setRoom] = useState('operations')
   const [chatDraft, setChatDraft] = useState('')
@@ -145,6 +160,19 @@ function App() {
   const loadOrders = async (accessToken: string) => {
     const data = await requestJson<{ orders: Order[] }>('/api/orders/orders', undefined, accessToken)
     setOrders(data.orders)
+    setPaymentForm((previous) => ({
+      ...previous,
+      orderId: previous.orderId || data.orders[0]?.id || '',
+    }))
+  }
+
+  const loadPayments = async (accessToken: string) => {
+    const data = await requestJson<{ payments: Payment[] }>(
+      '/api/payments/payments',
+      undefined,
+      accessToken,
+    )
+    setPayments(data.payments)
   }
 
   const loadChatHistory = async (accessToken: string, activeRoom: string) => {
@@ -184,6 +212,10 @@ function App() {
           setOrders([])
           setStatusMessage(error instanceof Error ? error.message : 'Unable to load orders.')
         })
+        void loadPayments(token).catch((error: unknown) => {
+          setPayments([])
+          setStatusMessage(error instanceof Error ? error.message : 'Unable to load payments.')
+        })
         void loadChatHistory(token, room).catch((error: unknown) => {
           setChatMessages([])
           setStatusMessage(error instanceof Error ? error.message : 'Unable to load chat history.')
@@ -197,6 +229,7 @@ function App() {
       localStorage.removeItem('sre_token')
       setCurrentUser(null)
       setOrders([])
+      setPayments([])
       setChatMessages([])
       setChatConnection('offline')
     }, 0)
@@ -291,10 +324,50 @@ function App() {
       )
 
       setOrders((previous) => [createdOrder, ...previous])
+      setPaymentForm((previous) => ({ ...previous, orderId: createdOrder.id }))
       setStatusMessage(`Order ${createdOrder.id} created successfully.`)
       void loadHealth()
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : 'Order creation failed.')
+      void loadHealth()
+    }
+  }
+
+  const submitPayment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!token) {
+      setStatusMessage('Authentication is required before authorizing a payment.')
+      return
+    }
+
+    const order = orders.find((item) => item.id === paymentForm.orderId)
+    if (!order) {
+      setStatusMessage('Select an order before authorizing payment.')
+      return
+    }
+
+    try {
+      const payment = await requestJson<Payment>(
+        '/api/payments/payments',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            order_id: order.id,
+            amount: order.total_price,
+            method: paymentForm.method,
+          }),
+        },
+        token,
+      )
+
+      setPayments((previous) => [payment, ...previous])
+      setOrders((previous) =>
+        previous.map((item) => (item.id === order.id ? { ...item, status: 'paid' } : item)),
+      )
+      setStatusMessage(`Payment ${payment.id} authorized for order ${order.id}.`)
+      void loadHealth()
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Payment authorization failed.')
       void loadHealth()
     }
   }
@@ -417,7 +490,7 @@ function App() {
 
         <section className="workspace">
           <nav className="workspace-nav">
-            {(['products', 'orders', 'chat', 'status'] as View[]).map((view) => (
+            {(['products', 'orders', 'payments', 'chat', 'status'] as View[]).map((view) => (
               <button
                 key={view}
                 type="button"
@@ -524,6 +597,81 @@ function App() {
                         <span className="pill online">{order.status}</span>
                       </div>
                       <div className="order-total">${order.total_price.toFixed(2)}</div>
+                      <code>{order.id}</code>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {activeView === 'payments' ? (
+            <section className="workspace-panel">
+              <div className="panel-header">
+                <span>Payment authorization</span>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => (token ? void loadPayments(token) : undefined)}
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <form className="payment-form" onSubmit={submitPayment}>
+                <label>
+                  Order
+                  <select
+                    value={paymentForm.orderId}
+                    onChange={(event) =>
+                      setPaymentForm((previous) => ({ ...previous, orderId: event.target.value }))
+                    }
+                  >
+                    {orders.map((order) => (
+                      <option key={order.id} value={order.id}>
+                        {order.product_name} - ${order.total_price.toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Method
+                  <select
+                    value={paymentForm.method}
+                    onChange={(event) =>
+                      setPaymentForm((previous) => ({
+                        ...previous,
+                        method: event.target.value as Payment['method'],
+                      }))
+                    }
+                  >
+                    <option value="demo">Demo</option>
+                    <option value="card">Card</option>
+                    <option value="cash">Cash</option>
+                  </select>
+                </label>
+
+                <button type="submit" className="primary-button">
+                  Authorize payment
+                </button>
+              </form>
+
+              <div className="order-list">
+                {payments.length === 0 ? (
+                  <p className="empty-state">No payments yet. Authorize a payment after creating an order.</p>
+                ) : (
+                  payments.map((payment) => (
+                    <article key={payment.id} className="order-card">
+                      <div>
+                        <strong>{payment.method.toUpperCase()} payment</strong>
+                        <span>{new Date(payment.created_at).toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <code>{payment.order_id}</code>
+                        <span className="pill online">{payment.status}</span>
+                      </div>
+                      <div className="order-total">${payment.amount.toFixed(2)}</div>
                     </article>
                   ))
                 )}
@@ -604,7 +752,7 @@ function App() {
                 <h2>Evidence checklist</h2>
                 <p>Capture screenshots from the UI, Prometheus, Grafana, and the incident simulation commands.</p>
                 <ul>
-                  <li>Healthy platform state with products, orders, and chat</li>
+                  <li>Healthy platform state with products, orders, payments, and chat</li>
                   <li>Prometheus targets page on port 9090</li>
                   <li>Grafana dashboard on port 3000</li>
                   <li>Degraded order-service during the incident override</li>

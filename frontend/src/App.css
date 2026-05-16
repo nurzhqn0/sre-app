@@ -141,6 +141,7 @@
 
 .stack-form,
 .order-form,
+.payment-form,
 .chat-toolbar,
 .chat-compose {
   display: grid;
@@ -221,7 +222,8 @@ select:focus {
   font-size: 12px;
 }
 
-.order-form {
+.order-form,
+.payment-form {
   grid-template-columns: minmax(200px, 1fr) 160px auto;
   align-items: end;
 }
@@ -295,7 +297,8 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
-  .order-form {
+  .order-form,
+  .payment-form {
     grid-template-columns: 1fr;
   }
 }
