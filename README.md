@@ -1,156 +1,317 @@
-# SRE App: Containerized Microservices, Terraform, and Incident Response
+# SRE Microservices Project
 
-This project implements a microservices-based e-commerce style platform for an SRE assignment. It combines FastAPI services, a React frontend served by Nginx, PostgreSQL, Docker Compose for local orchestration, Docker Stack for Swarm deployment, Prometheus, Grafana, Terraform for DigitalOcean, and a structured incident response simulation.
+End-term SRE project with six FastAPI microservices, React/Nginx frontend, PostgreSQL, Docker Compose, Docker Swarm, Kubernetes, Terraform, Ansible, Prometheus, Grafana, incident simulation, and capacity planning.
 
-## Architecture
-
-![alt text](/docs/image.png)
+GitHub: <https://github.com/nurzhqn0/sre-app.git>
 
 ## Services
 
-- `frontend`: React user interface served through Nginx on port `80`
-- `auth-service`: registration and login
-- `user-service`: user profile and user list
-- `product-service`: product catalog
-- `order-service`: order creation and listing
-- `chat-service`: WebSocket chat and message history
-- `postgres`: shared relational database
-- `prometheus`: metrics scraping on local port `9090`
-- `grafana`: dashboards on local port `3000`
-- `cadvisor`: container CPU, memory, and restart signal metrics for Prometheus
+| Service | Purpose | Port |
+| --- | --- | --- |
+| `frontend` | React UI served by Nginx | `80` |
+| `auth-service` | Register/login, JWT auth | `8001` |
+| `user-service` | User profile | `8002` |
+| `product-service` | Product catalog | `8003` |
+| `order-service` | Order creation/listing | `8004` |
+| `chat-service` | WebSocket chat | `8005` |
+| `payment-service` | Simulated payment authorization | `8006` |
+| `postgres` | Main database | `5432` |
+| `prometheus` | Metrics and alerts | `9090` Compose, `9091` Swarm |
+| `grafana` | Dashboards | `3000` Compose, `3001` Swarm |
 
-## Quick Start
+## Quick Validation
 
-1. Create a local `.env` from `.env.example` if you want to override defaults or set non-demo secrets.
-2. Start the full platform:
+```bash
+python3 scripts/validate_compose_config.py -f docker-compose.yml
+cd frontend && npm run build && cd ..
+docker compose config --quiet
+```
+
+Optional checks:
+
+```bash
+ruby -e 'require "yaml"; Dir["k8s/**/*.yaml"].each { |f| YAML.load_stream(File.read(f)) }; puts "k8s yaml ok"'
+ansible-playbook -i ansible/inventory.ini --syntax-check ansible/site.yml
+ansible-playbook -i ansible/inventory.ini --syntax-check ansible/k8s.yml
+```
+
+## Run With Docker Compose
+
+Start:
 
 ```bash
 docker compose up -d --build
 ```
 
-Pre-deployment validation for the Assignment 6 automation workflow:
+Open:
 
-```bash
-python3 scripts/validate_compose_config.py -f docker-compose.yml
-```
+- Frontend: <http://localhost>
+- Grafana: <http://localhost:3000>
+- Prometheus: <http://localhost:9090>
 
-3. Open the application:
-   - Frontend: [http://localhost](http://localhost)
-   - Grafana: [http://localhost:3000](http://localhost:3000)
-   - Prometheus: [http://localhost:9090](http://localhost:9090)
-
-Monitoring note:
-- Grafana and Prometheus are bound to `127.0.0.1`
-- they are reachable only on the local machine unless you forward them over SSH
-
-4. Stop the stack:
+Stop:
 
 ```bash
 docker compose down
 ```
 
-## Docker Stack Deployment
+## Demo Flow
 
-The repository also supports full Docker Swarm deployment through [docker-stack.yml](/Users/myrzanizimbetov/Desktop/sre-app/docker-stack.yml). The stack deploys:
+1. Register or log in.
+2. Open Products and confirm catalog data.
+3. Open Orders and create an order.
+4. Open Payments and authorize payment for the order.
+5. Open Chat and send a message.
+6. Open Status and confirm all services are healthy.
 
-- `frontend`
-- `auth-service`
-- `user-service`
-- `product-service`
-- `order-service`
-- `chat-service`
-- `postgres`
-- `prometheus`
-- `grafana`
+## Incident Simulation
 
-1. Initialize Swarm on the target host if it is not already enabled:
+Break `order-service` database config:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.incident.yml up -d order-service
+```
+
+Expected result:
+
+- order workflow fails
+- `order-service` health becomes unhealthy
+- Prometheus/Grafana show degradation
+
+Recover:
+
+```bash
+docker compose up -d order-service
+```
+
+Useful checks:
+
+```bash
+docker compose logs order-service
+curl -s 'http://localhost:9090/api/v1/query?query=service_health_status{service="order-service"}'
+```
+
+## Docker Swarm
+
+Start Swarm:
 
 ```bash
 docker swarm init
 ```
 
-2. Build the application images locally for the Swarm node:
+Build local stack images:
 
 ```bash
 ./scripts/build-stack-images.sh
 ```
 
-3. Deploy the stack:
+Deploy:
 
 ```bash
 docker stack deploy -c docker-stack.yml sre-app
 ```
 
-Default Swarm published ports are:
-
-- frontend: `80`
-- Grafana: `3001`
-- Prometheus: `9091`
-
-When the stack is deployed on a remote server, keep monitoring private:
-- expose the frontend publicly as needed
-- keep Grafana and Prometheus behind the Terraform firewall
-- access monitoring only through an SSH tunnel to `127.0.0.1:3001` and `127.0.0.1:9091`
-
-If you need different ports, override them during deployment:
-
-```bash
-STACK_HTTP_PORT=8081 STACK_GRAFANA_PORT=3002 STACK_PROMETHEUS_PORT=9092 docker stack deploy -c docker-stack.yml sre-app
-```
-
-4. Inspect services:
+Check:
 
 ```bash
 docker stack services sre-app
 docker stack ps sre-app
 ```
 
-5. If the stack is running on a remote host, create an SSH tunnel for monitoring:
+Capacity/scaling variant:
 
 ```bash
-ssh -L 3001:127.0.0.1:3001 -L 9091:127.0.0.1:9091 root@YOUR_PUBLIC_IP
+docker stack deploy -c docker-stack.yml -c docker-stack.capacity.yml sre-app
 ```
 
-Then open locally:
-- `http://localhost:3001`
-- `http://localhost:9091`
+Incident variant:
 
-6. Remove the stack when finished:
+```bash
+docker stack deploy -c docker-stack.yml -c docker-stack.incident.yml sre-app
+```
+
+Stop:
 
 ```bash
 docker stack rm sre-app
 ```
 
-## Terraform Infrastructure
+## Kubernetes
 
-Terraform configuration is included in [infra/terraform](/Users/myrzanizimbetov/Desktop/sre-app/infra/terraform) and provisions the infrastructure required by the assignment on DigitalOcean.
+If `kubectl` says `localhost:8080 refused`, no cluster/context is running.
 
-Version targets used in this repo:
-- Terraform CLI `1.14.x`
-- DigitalOcean Terraform provider `2.69.x`
-- Grafana image `13.0.1`
-- Prometheus image `3.11.2`
+Check:
 
-Included files:
-- `main.tf`
-- `variables.tf`
-- `outputs.tf`
-- `terraform.tfvars.example`
+```bash
+kubectl config get-contexts
+kubectl config current-context
+```
 
-Provisioned resources:
-- one `digitalocean_droplet`
-- one `digitalocean_firewall`
+### Option A: Minikube
 
-Opened ports:
-- `22` for SSH
-- `80` for the frontend
+Start Docker Desktop first:
 
-Monitoring access policy:
-- Grafana and Prometheus are intended to be accessed only through an SSH tunnel
-- the Terraform firewall does not expose monitoring ports publicly
-- Docker Compose binds monitoring ports to `127.0.0.1` on the host
+```bash
+open -a Docker
+docker ps
+```
 
-Basic workflow:
+Start Minikube:
+
+```bash
+minikube start --driver=docker
+kubectl config use-context minikube
+kubectl get nodes
+```
+
+Build images inside Minikube:
+
+```bash
+eval $(minikube docker-env)
+./scripts/build-stack-images.sh
+```
+
+Deploy:
+
+```bash
+kubectl apply -f k8s/
+kubectl -n sre-app get pods,svc
+```
+
+Open:
+
+```bash
+kubectl -n sre-app port-forward svc/frontend 8080:80
+```
+
+Frontend: <http://localhost:8080>
+
+Monitoring:
+
+```bash
+kubectl -n sre-app port-forward svc/prometheus 9090:9090
+kubectl -n sre-app port-forward svc/grafana 3000:3000
+```
+
+Stop app:
+
+```bash
+kubectl delete -f k8s/
+```
+
+Stop Minikube:
+
+```bash
+minikube stop
+```
+
+Delete Minikube cluster:
+
+```bash
+minikube delete
+```
+
+Return shell to normal Docker:
+
+```bash
+eval $(minikube docker-env -u)
+```
+
+### Option B: Docker Desktop Kubernetes
+
+Enable Kubernetes:
+
+```text
+Docker Desktop -> Settings -> Kubernetes -> Enable Kubernetes -> Apply & Restart
+```
+
+Use context:
+
+```bash
+kubectl config use-context docker-desktop
+kubectl get nodes
+```
+
+Build and deploy:
+
+```bash
+./scripts/build-stack-images.sh
+kubectl apply -f k8s/
+kubectl -n sre-app get pods,svc
+```
+
+Open:
+
+```bash
+kubectl -n sre-app port-forward svc/frontend 8080:80
+```
+
+### Optional Kubernetes cAdvisor
+
+cAdvisor is optional in Kubernetes. It can fail on Docker Desktop/Minikube because host runtime paths may not exist.
+
+Apply only if needed:
+
+```bash
+kubectl apply -f k8s/optional/cadvisor.yaml
+kubectl -n sre-app get pods -l app=cadvisor
+```
+
+The optional manifest disables service-account token mounting because cAdvisor mounts host `/var/run`; on Docker Desktop this avoids a common read-only filesystem conflict at `/var/run/secrets/kubernetes.io/serviceaccount`.
+
+Remove if failing:
+
+```bash
+kubectl delete -f k8s/optional/cadvisor.yaml
+```
+
+The core Kubernetes demo does not require cAdvisor.
+
+## Ansible
+
+Install:
+
+```bash
+brew install ansible
+```
+
+Syntax check:
+
+```bash
+ansible-playbook -i ansible/inventory.ini --syntax-check ansible/site.yml
+ansible-playbook -i ansible/inventory.ini --syntax-check ansible/k8s.yml
+```
+
+Deploy Docker Compose stack:
+
+```bash
+ansible-playbook -i ansible/inventory.ini ansible/site.yml
+```
+
+Deploy Kubernetes manifests:
+
+```bash
+ansible-playbook -i ansible/inventory.ini ansible/k8s.yml
+```
+
+Stop Ansible Compose deployment:
+
+```bash
+docker compose down
+```
+
+## Terraform
+
+Terraform provisions a DigitalOcean droplet and firewall.
+
+Files:
+
+- `infra/terraform/main.tf`
+- `infra/terraform/variables.tf`
+- `infra/terraform/outputs.tf`
+- `infra/terraform/terraform.tfvars.example`
+
+Run:
 
 ```bash
 cd infra/terraform
@@ -160,64 +321,161 @@ terraform apply
 terraform output droplet_public_ip
 ```
 
-Before running Terraform:
-1. Create a local ignored `infra/terraform/terraform.tfvars` from `infra/terraform/terraform.tfvars.example`.
-2. Add your DigitalOcean API token.
-3. Set the uploaded SSH key fingerprint.
-4. Review the selected region, Droplet size, and image values.
+Do not commit real `terraform.tfvars` or secrets.
 
-After Terraform creates the Droplet:
-1. SSH into the new server.
-2. Install Docker Engine and Docker Compose.
-3. Clone this repository.
-4. Run `docker compose up -d --build` or `docker stack deploy -c docker-stack.yml sre-app`.
-5. Verify public access on port `80`.
-6. Use SSH tunneling for monitoring access:
+## Monitoring
 
-```bash
-ssh -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 root@YOUR_PUBLIC_IP
+Prometheus:
+
+- `monitoring/prometheus/prometheus.yml`
+- `monitoring/prometheus/prometheus-stack.yml`
+- `monitoring/prometheus/alerts.yml`
+
+Grafana:
+
+- `monitoring/grafana/provisioning/datasources/datasource.yml`
+- `monitoring/grafana/provisioning/dashboards/dashboard.yml`
+- `monitoring/grafana/dashboards/platform-overview.json`
+
+Backend endpoints:
+
+```text
+/health
+/metrics
 ```
 
-7. Open locally in your browser:
-   - `http://localhost:3000`
-   - `http://localhost:9090`
+Main SLOs:
 
-## Default Demo Flow
+| SLI | SLO |
+| --- | --- |
+| Availability | `>= 99%` |
+| p95 latency | `<= 200 ms` |
+| Error rate | `<= 1%` |
+| Success rate | `>= 99%` |
 
-1. Register a new user in the frontend.
-2. Browse products loaded from `product-service`.
-3. Create an order from the Orders view.
-4. Open the Chat view in two browser windows and exchange WebSocket messages.
-5. Open the Status view to confirm health and observability coverage.
+## Important Files
 
-## Incident Simulation
+| Path | Purpose |
+| --- | --- |
+| `docs/end-term-project.md` | Final project report |
+| `docs/defence-guide.md` | Defence preparation |
+| `docs/incident-report.md` | Incident report |
+| `docs/postmortem.md` | Postmortem |
+| `docker-compose.yml` | Local deployment |
+| `docker-stack.yml` | Swarm deployment |
+| `k8s/` | Kubernetes manifests |
+| `ansible/` | Ansible automation |
+| `infra/terraform/` | Terraform infrastructure |
+| `scripts/validate_compose_config.py` | Pre-deployment validation |
+| `scripts/load_test.py` | Load test helper |
 
-Break the `order-service` database configuration with the incident override:
+## Stop and Delete Everything
+
+Stop a running port-forward:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.incident.yml up -d order-service
+Ctrl + C
 ```
 
-Restore healthy configuration:
+Stop Docker Compose:
 
 ```bash
-docker compose up -d order-service
+docker compose down
 ```
 
-Detailed response steps are documented in [docs/incident-report.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/incident-report.md) and [docs/postmortem.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/postmortem.md).
-
-For Swarm-based incident simulation, deploy the override with:
+Stop Docker Compose and delete volumes:
 
 ```bash
-docker stack deploy -c docker-stack.yml -c docker-stack.incident.yml sre-app
+docker compose down -v
 ```
 
-## Documentation
+Remove Docker Swarm stack:
 
-- Setup and deployment: [docs/deployment-guide.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/deployment-guide.md)
-- Security guidance: [docs/security-guidelines.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/security-guidelines.md)
-- Assignment 6 automation and capacity planning: [docs/assignment-6-automation-capacity.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/assignment-6-automation-capacity.md)
-- Terraform explanation: [docs/assignment-5-terraform.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/assignment-5-terraform.md)
-- Incident response report: [docs/incident-report.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/incident-report.md)
-- Postmortem: [docs/postmortem.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/postmortem.md)
-- Submission checklist: [docs/final-submission-checklist.md](/Users/myrzanizimbetov/Desktop/sre-app/docs/final-submission-checklist.md)
+```bash
+docker stack rm sre-app
+```
+
+Leave Docker Swarm mode after stack removal:
+
+```bash
+docker swarm leave --force
+```
+
+Delete Kubernetes app resources:
+
+```bash
+kubectl delete -f k8s/
+```
+
+Stop Kubernetes workloads without deleting resources:
+
+```bash
+kubectl scale deploy --all --replicas=0 -n sre-app
+kubectl scale statefulset --all --replicas=0 -n sre-app
+```
+
+Start Kubernetes workloads again:
+
+```bash
+kubectl scale deploy --all --replicas=1 -n sre-app
+kubectl scale statefulset --all --replicas=1 -n sre-app
+```
+
+Delete optional Kubernetes cAdvisor:
+
+```bash
+kubectl delete -f k8s/optional/cadvisor.yaml
+```
+
+Stop Minikube but keep the cluster:
+
+```bash
+minikube stop
+```
+
+Delete Minikube completely:
+
+```bash
+minikube delete
+```
+
+Return shell from Minikube Docker environment to normal Docker:
+
+```bash
+eval $(minikube docker-env -u)
+```
+
+Delete Kubernetes namespace directly if manifest deletion is stuck:
+
+```bash
+kubectl delete namespace sre-app
+```
+
+Remove locally built project images:
+
+```bash
+docker rmi \
+  sre-app/auth-service:latest \
+  sre-app/user-service:latest \
+  sre-app/product-service:latest \
+  sre-app/order-service:latest \
+  sre-app/chat-service:latest \
+  sre-app/payment-service:latest \
+  sre-app/frontend:latest
+```
+
+## Defence Evidence Checklist
+
+Capture screenshots or terminal output for:
+
+- frontend running
+- products, orders, payments, chat
+- service health view
+- Prometheus targets
+- Grafana dashboard
+- incident failure state
+- recovery state
+- Docker Swarm services
+- Kubernetes pods/services
+- Ansible syntax check or run output
+- Terraform plan/apply output if cloud demo is used
