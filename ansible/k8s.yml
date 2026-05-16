@@ -1,0 +1,39 @@
+---
+- name: Apply local Kubernetes manifests for SRE demo
+  hosts: sre_demo
+  become: false
+  vars:
+    project_root: "{{ playbook_dir }}/.."
+
+  tasks:
+    - name: Check kubectl availability
+      ansible.builtin.command:
+        cmd: kubectl version --client
+      register: kubectl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Skip Kubernetes deployment when kubectl is unavailable
+      ansible.builtin.debug:
+        msg: "kubectl is not available; install kubectl and a local cluster to apply k8s/ manifests."
+      when: kubectl_check.rc != 0
+
+    - name: Apply Kubernetes manifests
+      ansible.builtin.command:
+        cmd: kubectl apply -f k8s/
+        chdir: "{{ project_root }}"
+      register: kubectl_apply
+      changed_when: "'created' in kubectl_apply.stdout or 'configured' in kubectl_apply.stdout"
+      when: kubectl_check.rc == 0
+
+    - name: Show Kubernetes workload status
+      ansible.builtin.command:
+        cmd: kubectl -n sre-app get pods,svc
+      register: kubectl_status
+      changed_when: false
+      when: kubectl_check.rc == 0
+
+    - name: Print Kubernetes status
+      ansible.builtin.debug:
+        var: kubectl_status.stdout_lines
+      when: kubectl_check.rc == 0

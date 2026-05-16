@@ -1,0 +1,63 @@
+---
+- name: Deploy SRE demo stack with Docker Compose
+  hosts: sre_demo
+  become: false
+  vars:
+    project_root: "{{ playbook_dir }}/.."
+    compose_file: "{{ project_root }}/docker-compose.yml"
+
+  tasks:
+    - name: Install Docker dependencies on Debian hosts
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - docker.io
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure Docker service is running on Linux hosts
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+      become: true
+      when: ansible_system == "Linux"
+
+    - name: Confirm compose file is present
+      ansible.builtin.stat:
+        path: "{{ compose_file }}"
+      register: compose_stat
+
+    - name: Stop when compose file is missing
+      ansible.builtin.assert:
+        that:
+          - compose_stat.stat.exists
+        fail_msg: "docker-compose.yml was not found at {{ compose_file }}"
+
+    - name: Validate Docker Compose and monitoring configuration
+      ansible.builtin.command:
+        cmd: python3 scripts/validate_compose_config.py -f docker-compose.yml
+        chdir: "{{ project_root }}"
+      changed_when: false
+
+    - name: Deploy application stack
+      ansible.builtin.command:
+        cmd: docker compose up -d --build
+        chdir: "{{ project_root }}"
+      register: compose_deploy
+      changed_when: "'Started' in compose_deploy.stdout or 'Created' in compose_deploy.stdout or 'Recreated' in compose_deploy.stdout or 'Built' in compose_deploy.stdout"
+
+    - name: Show running compose services
+      ansible.builtin.command:
+        cmd: docker compose ps
+        chdir: "{{ project_root }}"
+      register: compose_status
+      changed_when: false
+
+    - name: Print service status
+      ansible.builtin.debug:
+        var: compose_status.stdout_lines
