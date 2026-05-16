@@ -16,6 +16,7 @@ APP_SERVICES = {
     "product-service",
     "order-service",
     "chat-service",
+    "payment-service",
 }
 HEALTHCHECK_SERVICES = APP_SERVICES | {"postgres", "frontend"}
 EXPECTED_RESTART_POLICY = "unless-stopped"

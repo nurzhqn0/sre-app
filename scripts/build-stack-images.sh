@@ -10,5 +10,6 @@ docker build -t "${IMAGE_PREFIX}/user-service:latest" -f "${ROOT_DIR}/backend/us
 docker build -t "${IMAGE_PREFIX}/product-service:latest" -f "${ROOT_DIR}/backend/product-service/Dockerfile" "${ROOT_DIR}"
 docker build -t "${IMAGE_PREFIX}/order-service:latest" -f "${ROOT_DIR}/backend/order-service/Dockerfile" "${ROOT_DIR}"
 docker build -t "${IMAGE_PREFIX}/chat-service:latest" -f "${ROOT_DIR}/backend/chat-service/Dockerfile" "${ROOT_DIR}"
+docker build -t "${IMAGE_PREFIX}/payment-service:latest" -f "${ROOT_DIR}/backend/payment-service/Dockerfile" "${ROOT_DIR}"
 docker build -t "${IMAGE_PREFIX}/frontend:latest" -f "${ROOT_DIR}/frontend/Dockerfile" "${ROOT_DIR}"
 echo "Built stack images with prefix ${IMAGE_PREFIX}"
