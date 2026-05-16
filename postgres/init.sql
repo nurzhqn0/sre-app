@@ -37,6 +37,16 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
+    method TEXT NOT NULL CHECK (method IN ('card', 'cash', 'demo')),
+    status TEXT NOT NULL DEFAULT 'authorized',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 INSERT INTO products (id, name, description, category, inventory, price)
 VALUES
     ('prd-observability-kit', 'Observability Starter Kit', 'Prometheus and Grafana starter bundle for new platform teams.', 'Monitoring', 22, 129.00),
