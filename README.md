@@ -300,6 +300,64 @@ Stop Ansible Compose deployment:
 docker compose down
 ```
 
+### Ansible on Linux VPS with k3s
+
+If Kubernetes pods show `ImagePullBackOff` or `ErrImagePull` for images like `sre-app/auth-service:latest`, k3s cannot see the local Docker images.
+
+On the VPS:
+
+```bash
+apt update
+apt install -y git docker.io
+systemctl enable --now docker
+curl -sfL https://get.k3s.io | sh -
+```
+
+Clone and enter the repo:
+
+```bash
+git clone https://github.com/nurzhqn0/sre-app.git
+cd sre-app
+```
+
+Build app images on the VPS:
+
+```bash
+./scripts/build-stack-images.sh
+```
+
+Import images into k3s containerd:
+
+```bash
+chmod +x scripts/import-k3s-images.sh
+./scripts/import-k3s-images.sh
+```
+
+Apply manifests:
+
+```bash
+ansible-playbook -i ansible/inventory.ini ansible/k8s.yml
+```
+
+Restart deployments after importing images:
+
+```bash
+kubectl -n sre-app rollout restart deployment
+kubectl -n sre-app get pods
+```
+
+Expose frontend on a VPS:
+
+```bash
+kubectl -n sre-app patch svc frontend -p '{"spec":{"type":"NodePort","ports":[{"port":80,"targetPort":80,"nodePort":30080}]}}'
+```
+
+Open:
+
+```text
+http://YOUR_SERVER_IP:30080
+```
+
 ## Terraform
 
 Terraform provisions a DigitalOcean droplet and firewall.
