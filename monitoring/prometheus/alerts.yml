@@ -11,7 +11,7 @@ groups:
           description: "{{ $labels.service }} health check is unhealthy."
 
       - alert: ServiceTargetDown
-        expr: up{job=~"auth-service|user-service|product-service|order-service|chat-service"} == 0
+        expr: up{job=~"auth-service|user-service|product-service|order-service|chat-service|payment-service"} == 0
         for: 30s
         labels:
           severity: critical

@@ -445,7 +445,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\".*auth-service.*|.*user-service.*|.*product-service.*|.*order-service.*|.*chat-service.*\"}[5m])) * 100",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\".*auth-service.*|.*user-service.*|.*product-service.*|.*order-service.*|.*chat-service.*|.*payment-service.*\"}[5m])) * 100",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -492,7 +492,7 @@
       },
       "targets": [
         {
-          "expr": "container_memory_working_set_bytes{name=~\".*auth-service.*|.*user-service.*|.*product-service.*|.*order-service.*|.*chat-service.*\"}",
+          "expr": "container_memory_working_set_bytes{name=~\".*auth-service.*|.*user-service.*|.*product-service.*|.*order-service.*|.*chat-service.*|.*payment-service.*\"}",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -548,7 +548,7 @@
       },
       "targets": [
         {
-          "expr": "service_health_status{service=~\"auth-service|user-service|product-service|order-service|chat-service\"}",
+          "expr": "service_health_status{service=~\"auth-service|user-service|product-service|order-service|chat-service|payment-service\"}",
           "format": "table",
           "instant": true,
           "refId": "A"
@@ -610,7 +610,7 @@
       },
       "targets": [
         {
-          "expr": "changes(container_start_time_seconds{name=~\".*auth-service.*|.*user-service.*|.*product-service.*|.*order-service.*|.*chat-service.*\"}[30m]) or on() vector(0)",
+          "expr": "changes(container_start_time_seconds{name=~\".*auth-service.*|.*user-service.*|.*product-service.*|.*order-service.*|.*chat-service.*|.*payment-service.*\"}[30m]) or on() vector(0)",
           "format": "table",
           "instant": true,
           "refId": "A"
