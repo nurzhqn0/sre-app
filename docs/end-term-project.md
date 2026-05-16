@@ -10,8 +10,8 @@ Git repository: <https://github.com/nurzhqn0/sre-app.git>
 
 Live deployment:
 
-- Domain: <http://sre.nurzhqn.com/>
 - Direct IP: <http://209.38.220.131/>
+- Domain target: <http://sre.nurzhqn.com/>
 - Current platform: Kubernetes on k3s with Traefik Ingress
 
 Current Kubernetes deployment state:
@@ -22,6 +22,8 @@ Current Kubernetes deployment state:
 - frontend service: internal `ClusterIP` behind Traefik
 - running pods: `auth-service`, `user-service`, `product-service`, `order-service`, `payment-service`, `chat-service`, `frontend`, `postgres`, `prometheus`, and `grafana`
 - verification: `curl -I http://209.38.220.131` returned `HTTP/1.1 200 OK` from the VPS
+- ingress verification: `curl -I -H 'Host: sre.nurzhqn.com' http://127.0.0.1` returned `HTTP/1.1 200 OK` from the VPS
+- DNS requirement: public DNS must resolve `sre.nurzhqn.com` to `209.38.220.131`
 
 ## 2. Objectives
 
@@ -60,7 +62,7 @@ Supporting components:
 
 | Component | Internal Port | Docker Compose Access | Docker Swarm Access | Kubernetes Access | Live VPS Access |
 | --- | ---: | --- | --- | --- | --- |
-| `frontend` | `80` | `http://localhost` | `http://SERVER_IP` or `STACK_HTTP_PORT` | Ingress/Service port `80` | `http://sre.nurzhqn.com/`, `http://209.38.220.131/` |
+| `frontend` | `80` | `http://localhost` | `http://SERVER_IP` or `STACK_HTTP_PORT` | Traefik Ingress to `ClusterIP` service port `80` | `http://209.38.220.131/`, `http://sre.nurzhqn.com/` when DNS resolves |
 | `auth-service` | `8001` | via frontend `/api/auth/` | internal overlay network | `ClusterIP` `8001` | internal only |
 | `user-service` | `8002` | via frontend `/api/users/` | internal overlay network | `ClusterIP` `8002` | internal only |
 | `product-service` | `8003` | via frontend `/api/products/` | internal overlay network | `ClusterIP` `8003` | internal only |

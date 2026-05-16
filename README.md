@@ -6,8 +6,8 @@ GitHub: <https://github.com/nurzhqn0/sre-app.git>
 
 Live deployment:
 
-- Domain: <http://sre.nurzhqn.com/>
 - Direct IP: <http://209.38.220.131/>
+- Domain target: <http://sre.nurzhqn.com/>
 - Current platform: Kubernetes on k3s with Traefik Ingress
 
 Current Kubernetes deployment:
@@ -19,6 +19,8 @@ Current Kubernetes deployment:
 - Prometheus and Grafana are private and must be accessed through SSH tunnels, not public NodePorts
 - Running pods: `auth-service`, `user-service`, `product-service`, `order-service`, `payment-service`, `chat-service`, `frontend`, `postgres`, `prometheus`, `grafana`
 - Verified from VPS with `curl -I http://209.38.220.131` returning `HTTP/1.1 200 OK`
+- Verified Ingress routing with `curl -I -H 'Host: sre.nurzhqn.com' http://127.0.0.1` returning `HTTP/1.1 200 OK`
+- Public domain availability depends on DNS resolving `sre.nurzhqn.com` to `209.38.220.131`
 
 Check current deployment:
 
@@ -328,12 +330,13 @@ docker compose down
 
 Current live VPS:
 
-- Domain: <http://sre.nurzhqn.com/>
 - Direct IP: <http://209.38.220.131/>
+- Domain target: <http://sre.nurzhqn.com/>
 - Server IP: `209.38.220.131`
 - Kubernetes: k3s
 - Ingress: Traefik routes HTTP port `80` to `frontend`
 - Status: deployed and verified with all core pods `1/1 Running`
+- DNS status: the Ingress host is configured; public DNS must point `sre.nurzhqn.com` to `209.38.220.131`
 
 If Kubernetes pods show `ImagePullBackOff` or `ErrImagePull` for images like `sre-app/auth-service:latest`, k3s cannot see the local Docker images.
 
@@ -410,8 +413,8 @@ kubectl apply -f k8s/50-frontend-ingress.yaml
 Open:
 
 ```text
-http://sre.nurzhqn.com/
 http://209.38.220.131/
+http://sre.nurzhqn.com/
 ```
 
 DNS requirement:
@@ -421,6 +424,24 @@ A record: sre.nurzhqn.com -> 209.38.220.131
 ```
 
 DigitalOcean firewall must allow inbound TCP `80`.
+
+Verify DNS from the laptop:
+
+```bash
+dig +short sre.nurzhqn.com
+```
+
+Expected:
+
+```text
+209.38.220.131
+```
+
+Verify Ingress routing on the VPS even before DNS propagates:
+
+```bash
+curl -I -H 'Host: sre.nurzhqn.com' http://127.0.0.1
+```
 
 Do not expose Grafana or Prometheus publicly. Use SSH tunnels from your laptop:
 
