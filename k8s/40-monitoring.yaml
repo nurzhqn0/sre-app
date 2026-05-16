@@ -83,6 +83,16 @@ data:
         access: proxy
         url: http://prometheus:9090
         isDefault: true
+  dashboard.yml: |
+    apiVersion: 1
+    providers:
+      - name: sre-app-dashboards
+        folder: SRE App
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -169,10 +179,21 @@ spec:
               mountPath: /etc/grafana/provisioning/datasources/datasource.yml
               subPath: datasource.yml
               readOnly: true
+            - name: grafana-provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboard.yml
+              subPath: dashboard.yml
+              readOnly: true
+            - name: grafana-platform-dashboard
+              mountPath: /var/lib/grafana/dashboards/platform-overview.json
+              subPath: platform-overview.json
+              readOnly: true
       volumes:
         - name: grafana-provisioning
           configMap:
             name: grafana-provisioning
+        - name: grafana-platform-dashboard
+          configMap:
+            name: grafana-platform-dashboard
 ---
 apiVersion: v1
 kind: Service

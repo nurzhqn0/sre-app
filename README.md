@@ -394,6 +394,15 @@ Grafana:
 - `monitoring/grafana/provisioning/datasources/datasource.yml`
 - `monitoring/grafana/provisioning/dashboards/dashboard.yml`
 - `monitoring/grafana/dashboards/platform-overview.json`
+- `k8s/45-grafana-dashboard.yaml` mounts the same `platform-overview.json` dashboard into Kubernetes Grafana.
+
+If Grafana has no dashboard after a Kubernetes deploy:
+
+```bash
+kubectl apply -f k8s/45-grafana-dashboard.yaml
+kubectl -n sre-app rollout restart deployment/grafana
+kubectl -n sre-app logs deployment/grafana | grep -i dashboard
+```
 
 Backend endpoints:
 
