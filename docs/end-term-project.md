@@ -299,13 +299,14 @@ Inject the same incident in Kubernetes by applying a deployment patch for `order
 
 ```bash
 kubectl apply -f k8s/incident/order-service-broken-db.yaml
-kubectl -n sre-app rollout status deployment/order-service
+kubectl -n sre-app rollout status deployment/order-service --timeout=90s
 ```
 
 Expected Kubernetes impact:
 
 - order creation and order listing fail
 - `order-service` readiness fails because `/health` cannot connect to PostgreSQL
+- rollout status times out or reports progress deadline exceeded
 - Prometheus target and health metrics show degradation
 - Grafana dashboard shows order-service impact
 
@@ -313,7 +314,7 @@ Kubernetes recovery:
 
 ```bash
 kubectl apply -f k8s/20-services.yaml
-kubectl -n sre-app rollout status deployment/order-service
+kubectl -n sre-app rollout status deployment/order-service --timeout=120s
 ```
 
 Kubernetes evidence commands:

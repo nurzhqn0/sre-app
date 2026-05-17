@@ -61,13 +61,14 @@ Break `order-service` database connectivity by applying an incident patch with a
 
 ```bash
 kubectl apply -f k8s/incident/order-service-broken-db.yaml
-kubectl -n sre-app rollout status deployment/order-service
+kubectl -n sre-app rollout status deployment/order-service --timeout=90s
 ```
 
 Expected result:
 
 - order creation and order listing fail
 - `order-service` readiness fails
+- rollout status times out or reports progress deadline exceeded
 - Prometheus target and health metrics show degradation
 - Grafana shows order-service impact
 
@@ -84,5 +85,5 @@ Recover by reapplying the normal service manifest and waiting for rollout:
 
 ```bash
 kubectl apply -f k8s/20-services.yaml
-kubectl -n sre-app rollout status deployment/order-service
+kubectl -n sre-app rollout status deployment/order-service --timeout=120s
 ```

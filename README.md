@@ -125,20 +125,21 @@ Break `order-service` database connectivity with an invalid PostgreSQL hostname:
 
 ```bash
 kubectl apply -f k8s/incident/order-service-broken-db.yaml
-kubectl -n sre-app rollout status deployment/order-service
+kubectl -n sre-app rollout status deployment/order-service --timeout=90s
 ```
 
 Expected result:
 
 - order workflow fails
 - `order-service` readiness fails
+- rollout status times out or reports progress deadline exceeded
 - Prometheus/Grafana show degradation
 
 Recover:
 
 ```bash
 kubectl apply -f k8s/20-services.yaml
-kubectl -n sre-app rollout status deployment/order-service
+kubectl -n sre-app rollout status deployment/order-service --timeout=120s
 ```
 
 Useful checks:

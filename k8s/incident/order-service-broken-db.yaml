@@ -5,6 +5,9 @@ metadata:
   namespace: sre-app
 spec:
   replicas: 1
+  progressDeadlineSeconds: 60
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: order-service
