@@ -32,6 +32,10 @@ terraform.tfvars
 !.auto.tfvars.example
 !terraform.tfvars.example
 
+# Local Ansible inventory with real VM addresses, users, or domains
+ansible/inventory.local.ini
+ansible/*.local.ini
+
 # Local editor and OS files
 .idea/
 .vscode/

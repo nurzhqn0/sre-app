@@ -1,22 +1,138 @@
 ---
-- name: Apply local Kubernetes manifests for SRE demo
+- name: Deploy SRE demo to k3s on the VM
   hosts: sre_demo
-  become: false
+  become: true
+  gather_facts: false
   vars:
-    project_root: "{{ playbook_dir }}/.."
+    project_root: "{{ deploy_path | default('/opt/sre-app') }}"
+    repo_url: "{{ git_repo | default('https://github.com/nurzhqn0/sre-app.git') }}"
+    repo_version: "{{ git_version | default('main') }}"
+    ingress_domain: "{{ app_domain | default('app.example.com') }}"
+    app_deployments:
+      - postgres
+      - auth-service
+      - user-service
+      - product-service
+      - order-service
+      - chat-service
+      - payment-service
+      - frontend
+      - prometheus
+      - grafana
+
+  pre_tasks:
+    - name: Stop when placeholder inventory is used
+      ansible.builtin.assert:
+        that:
+          - ansible_host | default('') != 'YOUR_VM_IP'
+          - ansible_user | default('') != 'YOUR_SSH_USER'
+        fail_msg: "Create ansible/inventory.local.ini with your real VM host/user and run: ansible-playbook -i ansible/inventory.local.ini ansible/k8s.yml"
+      delegate_to: localhost
+      become: false
+
+    - name: Gather VM facts
+      ansible.builtin.setup:
 
   tasks:
-    - name: Check kubectl availability
+    - name: Install base dependencies on Debian hosts
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - git
+          - python3
+        state: present
+        update_cache: true
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: Check Docker CLI availability
       ansible.builtin.command:
-        cmd: kubectl version --client
-      register: kubectl_check
+        cmd: docker --version
+      register: docker_cli
       changed_when: false
       failed_when: false
 
-    - name: Skip Kubernetes deployment when kubectl is unavailable
-      ansible.builtin.debug:
-        msg: "kubectl is not available; install kubectl and a local cluster to apply k8s/ manifests."
-      when: kubectl_check.rc != 0
+    - name: Install distro Docker only when Docker is missing
+      ansible.builtin.apt:
+        name:
+          - docker.io
+        state: present
+      when:
+        - ansible_facts["os_family"] == "Debian"
+        - docker_cli.rc != 0
+
+    - name: Verify Docker CLI is available
+      ansible.builtin.command:
+        cmd: docker --version
+      register: docker_cli_verify
+      changed_when: false
+
+    - name: Ensure Docker service is running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Check whether k3s is installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/k3s
+      register: k3s_binary
+
+    - name: Download k3s installer
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: /tmp/install-k3s.sh
+        mode: "0755"
+      when: not k3s_binary.stat.exists
+
+    - name: Install k3s with a readable kubeconfig
+      ansible.builtin.command:
+        cmd: /tmp/install-k3s.sh
+      environment:
+        INSTALL_K3S_EXEC: "--write-kubeconfig-mode 644"
+      when: not k3s_binary.stat.exists
+
+    - name: Wait for Kubernetes API to be ready
+      ansible.builtin.command:
+        cmd: kubectl get nodes
+      register: kubectl_nodes
+      changed_when: false
+      retries: 12
+      delay: 5
+      until: kubectl_nodes.rc == 0
+
+    - name: Create deployment directory
+      ansible.builtin.file:
+        path: "{{ project_root }}"
+        state: directory
+        mode: "0755"
+
+    - name: Checkout application repository on the VM
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ project_root }}"
+        version: "{{ repo_version }}"
+        force: true
+        update: true
+
+    - name: Set frontend ingress host for this VM
+      ansible.builtin.replace:
+        path: "{{ project_root }}/k8s/50-frontend-ingress.yaml"
+        regexp: 'host: .*'
+        replace: "host: {{ ingress_domain }}"
+
+    - name: Build Docker images on the VM
+      ansible.builtin.command:
+        cmd: ./scripts/build-stack-images.sh
+        chdir: "{{ project_root }}"
+      changed_when: true
+
+    - name: Import application images into k3s containerd
+      ansible.builtin.command:
+        cmd: ./scripts/import-k3s-images.sh
+        chdir: "{{ project_root }}"
+      register: image_import
+      changed_when: true
 
     - name: Apply Kubernetes manifests
       ansible.builtin.command:
@@ -24,16 +140,27 @@
         chdir: "{{ project_root }}"
       register: kubectl_apply
       changed_when: "'created' in kubectl_apply.stdout or 'configured' in kubectl_apply.stdout"
-      when: kubectl_check.rc == 0
+
+    - name: Restart application deployments after image import
+      ansible.builtin.command:
+        cmd: "kubectl -n sre-app rollout restart deployment/{{ item }}"
+      loop: "{{ app_deployments }}"
+      register: rollout_restart
+      changed_when: "'restarted' in rollout_restart.stdout"
+      when: image_import is changed
+
+    - name: Wait for application deployments to roll out
+      ansible.builtin.command:
+        cmd: "kubectl -n sre-app rollout status deployment/{{ item }} --timeout=240s"
+      loop: "{{ app_deployments }}"
+      changed_when: false
 
     - name: Show Kubernetes workload status
       ansible.builtin.command:
-        cmd: kubectl -n sre-app get pods,svc
+        cmd: kubectl -n sre-app get pods,svc,ingress
       register: kubectl_status
       changed_when: false
-      when: kubectl_check.rc == 0
 
     - name: Print Kubernetes status
       ansible.builtin.debug:
         var: kubectl_status.stdout_lines
-      when: kubectl_check.rc == 0

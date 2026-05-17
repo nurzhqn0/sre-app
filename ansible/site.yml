@@ -1,31 +1,116 @@
 ---
 - name: Deploy SRE demo stack with Docker Compose
   hosts: sre_demo
-  become: false
+  become: true
+  gather_facts: false
   vars:
-    project_root: "{{ playbook_dir }}/.."
+    project_root: "{{ deploy_path | default('/opt/sre-app') }}"
     compose_file: "{{ project_root }}/docker-compose.yml"
+    repo_url: "{{ git_repo | default('https://github.com/nurzhqn0/sre-app.git') }}"
+    repo_version: "{{ git_version | default('main') }}"
+    postgres_db: "{{ lookup('env', 'POSTGRES_DB') | default('sre_app', true) }}"
+    postgres_user: "{{ lookup('env', 'POSTGRES_USER') | default('sre_user', true) }}"
+    postgres_password: "{{ lookup('env', 'POSTGRES_PASSWORD') | default('sre_password', true) }}"
+    jwt_secret_key: "{{ lookup('env', 'JWT_SECRET_KEY') | default('change-this-jwt-secret', true) }}"
+    grafana_admin_user: "{{ lookup('env', 'GRAFANA_ADMIN_USER') | default('admin', true) }}"
+    grafana_admin_password: "{{ lookup('env', 'GRAFANA_ADMIN_PASSWORD') | default('change-this-grafana-password', true) }}"
+
+  pre_tasks:
+    - name: Stop when placeholder inventory is used
+      ansible.builtin.assert:
+        that:
+          - ansible_host | default('') != 'YOUR_VM_IP'
+          - ansible_user | default('') != 'YOUR_SSH_USER'
+        fail_msg: "Create ansible/inventory.local.ini with your real VM host/user and run: ansible-playbook -i ansible/inventory.local.ini ansible/site.yml"
+      delegate_to: localhost
+      become: false
+
+    - name: Gather VM facts
+      ansible.builtin.setup:
 
   tasks:
-    - name: Install Docker dependencies on Debian hosts
+    - name: Install base dependencies on Debian hosts
       ansible.builtin.apt:
         name:
           - ca-certificates
           - curl
-          - docker.io
-          - docker-compose-plugin
+          - git
+          - python3
         state: present
         update_cache: true
-      become: true
-      when: ansible_os_family == "Debian"
+      when: ansible_facts["os_family"] == "Debian"
+
+    - name: Check Docker CLI availability
+      ansible.builtin.command:
+        cmd: docker --version
+      register: docker_cli
+      changed_when: false
+      failed_when: false
+
+    - name: Install distro Docker only when Docker is missing
+      ansible.builtin.apt:
+        name:
+          - docker.io
+        state: present
+      when:
+        - ansible_facts["os_family"] == "Debian"
+        - docker_cli.rc != 0
+
+    - name: Verify Docker CLI is available
+      ansible.builtin.command:
+        cmd: docker --version
+      register: docker_cli_verify
+      changed_when: false
+
+    - name: Check Docker Compose plugin availability
+      ansible.builtin.command:
+        cmd: docker compose version
+      register: compose_plugin
+      changed_when: false
+      failed_when: false
+
+    - name: Install Docker Compose plugin only when missing
+      ansible.builtin.apt:
+        name:
+          - docker-compose-plugin
+        state: present
+      when:
+        - ansible_facts["os_family"] == "Debian"
+        - compose_plugin.rc != 0
 
     - name: Ensure Docker service is running on Linux hosts
       ansible.builtin.service:
         name: docker
         state: started
         enabled: true
-      become: true
-      when: ansible_system == "Linux"
+      when: ansible_facts["system"] == "Linux"
+
+    - name: Create deployment directory
+      ansible.builtin.file:
+        path: "{{ project_root }}"
+        state: directory
+        mode: "0755"
+
+    - name: Checkout application repository on the VM
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ project_root }}"
+        version: "{{ repo_version }}"
+        force: true
+        update: true
+
+    - name: Write runtime environment file
+      ansible.builtin.copy:
+        dest: "{{ project_root }}/.env"
+        mode: "0600"
+        content: |
+          POSTGRES_DB={{ postgres_db }}
+          POSTGRES_USER={{ postgres_user }}
+          POSTGRES_PASSWORD={{ postgres_password }}
+          JWT_SECRET_KEY={{ jwt_secret_key }}
+          GRAFANA_ADMIN_USER={{ grafana_admin_user }}
+          GRAFANA_ADMIN_PASSWORD={{ grafana_admin_password }}
+      no_log: true
 
     - name: Confirm compose file is present
       ansible.builtin.stat:
