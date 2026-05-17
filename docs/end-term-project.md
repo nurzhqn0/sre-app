@@ -272,6 +272,8 @@ Alert coverage includes:
 
 Incident scenario: `order-service` receives an invalid PostgreSQL hostname through an override file.
 
+### Docker Compose
+
 Inject incident:
 
 ```bash
@@ -289,6 +291,37 @@ Recovery:
 
 ```bash
 docker compose up -d order-service
+```
+
+### Kubernetes
+
+Inject the same incident in Kubernetes by applying a deployment patch for `order-service`:
+
+```bash
+kubectl apply -f k8s/incident/order-service-broken-db.yaml
+kubectl -n sre-app rollout status deployment/order-service
+```
+
+Expected Kubernetes impact:
+
+- order creation and order listing fail
+- `order-service` readiness fails because `/health` cannot connect to PostgreSQL
+- Prometheus target and health metrics show degradation
+- Grafana dashboard shows order-service impact
+
+Kubernetes recovery:
+
+```bash
+kubectl apply -f k8s/20-services.yaml
+kubectl -n sre-app rollout status deployment/order-service
+```
+
+Kubernetes evidence commands:
+
+```bash
+kubectl -n sre-app get pods -l app=order-service
+kubectl -n sre-app logs deployment/order-service --tail=100
+kubectl -n sre-app get endpoints order-service
 ```
 
 Detailed evidence and analysis:
@@ -351,17 +384,243 @@ Optional full local demo:
 docker compose up -d --build
 ```
 
-Capture evidence:
+## 14. Screenshot and Evidence Guide
 
-- frontend product, order, payment, chat, and health views
-- Prometheus targets with all backend services including `payment-service`
-- Grafana dashboard showing service health and resource metrics
-- order-service incident state
-- recovery state after restoring the correct database configuration
-- Swarm service list and capacity override
-- Kubernetes pod and service list
+Use this section as the screenshot checklist for the final PDF. Replace each placeholder with the screenshot or terminal capture.
 
-## 14. Conclusion
+### 14.1 Live Frontend
+
+How to capture:
+
+1. Open `http://209.38.220.131/`.
+2. If DNS is ready, also open `http://sre.nurzhqn.com/`.
+3. Capture the main UI showing the application loaded.
+
+Placeholder:
+
+```text
+[Screenshot: live frontend home page]
+```
+
+### 14.2 Product, Order, Payment, Chat Flow
+
+How to capture:
+
+1. Register or log in.
+2. Open Products and show product catalog.
+3. Open Orders and create an order.
+4. Open Payments and authorize payment.
+5. Open Chat and send one message.
+
+Placeholders:
+
+```text
+[Screenshot: product catalog]
+[Screenshot: created order]
+[Screenshot: authorized payment]
+[Screenshot: chat message]
+```
+
+### 14.3 Kubernetes Deployment
+
+How to capture:
+
+Run:
+
+```bash
+kubectl -n sre-app get pods
+kubectl -n sre-app get svc
+kubectl -n sre-app get ingress
+```
+
+Expected evidence:
+
+- all core pods are `1/1 Running`
+- frontend is exposed through Traefik Ingress
+- Grafana and Prometheus are `ClusterIP`
+
+Placeholder:
+
+```text
+[Screenshot or terminal output: Kubernetes pods/services/ingress]
+```
+
+### 14.4 Ingress and DNS Verification
+
+How to capture:
+
+Run on the VPS:
+
+```bash
+curl -I http://209.38.220.131
+curl -I -H 'Host: sre.nurzhqn.com' http://127.0.0.1
+```
+
+Run from the laptop:
+
+```bash
+dig +short sre.nurzhqn.com
+```
+
+Expected:
+
+- IP endpoint returns `HTTP/1.1 200 OK`
+- Host-header test returns `HTTP/1.1 200 OK`
+- DNS returns `209.38.220.131` after propagation
+
+Placeholder:
+
+```text
+[Screenshot or terminal output: ingress and DNS checks]
+```
+
+### 14.5 Private Prometheus and Grafana Access
+
+Grafana and Prometheus must not be exposed publicly. Access them through an SSH tunnel.
+
+How to capture:
+
+From laptop:
+
+```bash
+ssh \
+  -L 3000:10.43.33.217:3000 \
+  -L 9090:10.43.157.187:9090 \
+  root@209.38.220.131
+```
+
+Then open locally:
+
+```text
+http://localhost:3000
+http://localhost:9090
+```
+
+In Grafana, open:
+
+```text
+Dashboards -> SRE App -> SRE App Platform Overview
+```
+
+Placeholders:
+
+```text
+[Screenshot: Prometheus targets page on localhost:9090]
+[Screenshot: Grafana SRE App Platform Overview dashboard on localhost:3000]
+```
+
+### 14.6 Monitoring Privacy Verification
+
+How to capture:
+
+Run on the VPS:
+
+```bash
+kubectl -n sre-app get svc grafana prometheus
+ss -lntp | grep -E '30090|30300' || true
+```
+
+Expected:
+
+- `grafana` is `ClusterIP`
+- `prometheus` is `ClusterIP`
+- no process listens on public NodePorts `30090` or `30300`
+
+Placeholder:
+
+```text
+[Screenshot or terminal output: Grafana/Prometheus private service verification]
+```
+
+### 14.7 Incident Simulation
+
+How to capture using Docker Compose demo:
+
+Inject incident:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.incident.yml up -d order-service
+```
+
+Capture:
+
+```bash
+docker compose logs order-service
+curl -s 'http://localhost:9090/api/v1/query?query=service_health_status{service="order-service"}'
+```
+
+Recover:
+
+```bash
+docker compose up -d order-service
+```
+
+Placeholders:
+
+```text
+[Screenshot or terminal output: order-service incident]
+[Screenshot or terminal output: order-service recovery]
+```
+
+### 14.8 Docker Swarm Evidence
+
+How to capture:
+
+```bash
+docker swarm init
+./scripts/build-stack-images.sh
+docker stack deploy -c docker-stack.yml sre-app
+docker stack services sre-app
+docker stack ps sre-app
+```
+
+Capacity variant:
+
+```bash
+docker stack deploy -c docker-stack.yml -c docker-stack.capacity.yml sre-app
+docker stack services sre-app
+```
+
+Placeholder:
+
+```text
+[Screenshot or terminal output: Docker Swarm services and capacity variant]
+```
+
+### 14.9 Ansible Evidence
+
+How to capture:
+
+```bash
+ansible-playbook -i ansible/inventory.ini --syntax-check ansible/site.yml
+ansible-playbook -i ansible/inventory.ini --syntax-check ansible/k8s.yml
+ansible-playbook -i ansible/inventory.ini ansible/k8s.yml
+```
+
+Placeholder:
+
+```text
+[Screenshot or terminal output: Ansible syntax checks and Kubernetes apply]
+```
+
+### 14.10 Terraform Evidence
+
+How to capture:
+
+```bash
+cd infra/terraform
+terraform init
+terraform plan
+terraform output droplet_public_ip
+```
+
+Placeholder:
+
+```text
+[Screenshot or terminal output: Terraform plan/output]
+```
+
+## 15. Conclusion
 
 This project implements a complete SRE demonstration for a distributed microservices platform. It combines service design, deployment automation, infrastructure provisioning, observability, incident response, and capacity planning into a single reproducible repository suitable for end-term evaluation.
 

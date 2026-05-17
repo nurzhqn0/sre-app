@@ -92,6 +92,8 @@ docker compose down
 
 ## Incident Simulation
 
+### Docker Compose
+
 Break `order-service` database config:
 
 ```bash
@@ -115,6 +117,35 @@ Useful checks:
 ```bash
 docker compose logs order-service
 curl -s 'http://localhost:9090/api/v1/query?query=service_health_status{service="order-service"}'
+```
+
+### Kubernetes
+
+Break `order-service` database connectivity with an invalid PostgreSQL hostname:
+
+```bash
+kubectl apply -f k8s/incident/order-service-broken-db.yaml
+kubectl -n sre-app rollout status deployment/order-service
+```
+
+Expected result:
+
+- order workflow fails
+- `order-service` readiness fails
+- Prometheus/Grafana show degradation
+
+Recover:
+
+```bash
+kubectl apply -f k8s/20-services.yaml
+kubectl -n sre-app rollout status deployment/order-service
+```
+
+Useful checks:
+
+```bash
+kubectl -n sre-app get pods -l app=order-service
+kubectl -n sre-app logs deployment/order-service --tail=100
 ```
 
 ## Docker Swarm

@@ -54,3 +54,35 @@ If cAdvisor fails, remove it without affecting the application:
 ```bash
 kubectl delete -f k8s/optional/cadvisor.yaml
 ```
+
+## Incident Simulation
+
+Break `order-service` database connectivity by applying an incident patch with an invalid PostgreSQL hostname:
+
+```bash
+kubectl apply -f k8s/incident/order-service-broken-db.yaml
+kubectl -n sre-app rollout status deployment/order-service
+```
+
+Expected result:
+
+- order creation and order listing fail
+- `order-service` readiness fails
+- Prometheus target and health metrics show degradation
+- Grafana shows order-service impact
+
+Useful checks:
+
+```bash
+kubectl -n sre-app get pods -l app=order-service
+kubectl -n sre-app logs deployment/order-service --tail=100
+kubectl -n sre-app port-forward svc/prometheus 9090:9090
+curl -s 'http://localhost:9090/api/v1/query?query=service_health_status{service="order-service"}'
+```
+
+Recover by reapplying the normal service manifest and waiting for rollout:
+
+```bash
+kubectl apply -f k8s/20-services.yaml
+kubectl -n sre-app rollout status deployment/order-service
+```
