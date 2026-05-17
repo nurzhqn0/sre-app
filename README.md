@@ -663,19 +663,3 @@ docker rmi \
   sre-app/payment-service:latest \
   sre-app/frontend:latest
 ```
-
-## Defence Evidence Checklist
-
-Capture screenshots or terminal output for:
-
-- frontend running
-- products, orders, payments, chat
-- service health view
-- Prometheus targets
-- Grafana dashboard
-- incident failure state
-- recovery state
-- Docker Swarm services
-- Kubernetes pods/services
-- Ansible syntax check or run output
-- Terraform plan/apply output if cloud demo is used
