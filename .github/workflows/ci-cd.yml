@@ -135,9 +135,9 @@ jobs:
 
       - name: Verify live frontend
         run: |
-          curl --fail --retry 12 --retry-delay 10 --retry-all-errors "http://${VPS_HOST}/"
           if getent hosts "$APP_DOMAIN" > /dev/null; then
-            curl --fail --retry 6 --retry-delay 10 --retry-all-errors "http://${APP_DOMAIN}/"
+            curl --fail --retry 12 --retry-delay 10 --retry-all-errors "http://${APP_DOMAIN}/"
           else
-            echo "APP_DOMAIN ${APP_DOMAIN} does not resolve yet; VPS IP verification passed."
+            echo "APP_DOMAIN ${APP_DOMAIN} does not resolve yet; verifying ingress through VPS IP with Host header."
+            curl --fail --retry 12 --retry-delay 10 --retry-all-errors -H "Host: ${APP_DOMAIN}" "http://${VPS_HOST}/"
           fi

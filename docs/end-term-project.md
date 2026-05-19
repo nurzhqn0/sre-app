@@ -408,8 +408,8 @@ GitHub Actions evidence:
 - CI job passed on the final commit.
 - Deployment job passed after CI.
 - Deployment logs show successful Ansible rollout checks.
-- `http://209.38.220.131/` returns the frontend.
 - `http://sre.nurzhqn.com/` returns the frontend when DNS resolves.
+- If DNS is not ready, `curl -H 'Host: sre.nurzhqn.com' http://209.38.220.131/` verifies the host-based Traefik Ingress.
 
 Optional full local demo:
 

@@ -589,8 +589,8 @@ Final submission evidence:
 - screenshot of a successful CI job
 - screenshot of a successful deploy job
 - workflow logs showing Ansible rollout status
-- browser or `curl` verification for `http://209.38.220.131/`
-- DNS verification for `http://sre.nurzhqn.com/` when the domain resolves
+- browser or `curl` verification for `http://sre.nurzhqn.com/`
+- fallback ingress verification with `curl -H 'Host: sre.nurzhqn.com' http://209.38.220.131/` if DNS is not ready
 
 ## Important Files
 
