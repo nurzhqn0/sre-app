@@ -10,7 +10,15 @@
     ingress_domain: "{{ app_domain | default('app.example.com') }}"
     letsencrypt_email: "{{ acme_email | default('admin@sre.nurzhqn.com') }}"
     cert_manager_manifest_url: "https://github.com/cert-manager/cert-manager/releases/download/v1.20.2/cert-manager.yaml"
-    app_deployments:
+    image_deployments:
+      - auth-service
+      - user-service
+      - product-service
+      - order-service
+      - chat-service
+      - payment-service
+      - frontend
+    rollout_deployments:
       - postgres
       - auth-service
       - user-service
@@ -173,23 +181,51 @@
     - name: Restart application deployments after image import
       ansible.builtin.command:
         cmd: "kubectl -n sre-app rollout restart deployment/{{ item }}"
-      loop: "{{ app_deployments }}"
+      loop: "{{ image_deployments }}"
       register: rollout_restart
       changed_when: "'restarted' in rollout_restart.stdout"
       when: image_import is changed
 
     - name: Wait for application deployments to roll out
       ansible.builtin.command:
-        cmd: "kubectl -n sre-app rollout status deployment/{{ item }} --timeout=240s"
-      loop: "{{ app_deployments }}"
+        cmd: "kubectl -n sre-app rollout status deployment/{{ item }} --timeout=120s"
+      loop: "{{ rollout_deployments }}"
+      loop_control:
+        label: "{{ item }}"
+      register: rollout_status
       changed_when: false
+      failed_when: false
+
+    - name: Print rollout status output
+      ansible.builtin.debug:
+        msg: "{{ item.item }}: {{ item.stdout | default(item.stderr, true) }}"
+      loop: "{{ rollout_status.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Show certificate status
+      ansible.builtin.command:
+        cmd: kubectl -n sre-app get certificate,certificaterequest,order,challenge
+      register: certificate_status
+      changed_when: false
+      failed_when: false
 
     - name: Show Kubernetes workload status
       ansible.builtin.command:
-        cmd: kubectl -n sre-app get pods,svc,ingress
+        cmd: kubectl -n sre-app get pods,svc,ingress,certificate
       register: kubectl_status
       changed_when: false
+
+    - name: Print certificate status
+      ansible.builtin.debug:
+        var: certificate_status.stdout_lines
 
     - name: Print Kubernetes status
       ansible.builtin.debug:
         var: kubectl_status.stdout_lines
+
+    - name: Fail when any deployment did not roll out
+      ansible.builtin.assert:
+        that:
+          - rollout_status.results | selectattr('rc', 'ne', 0) | list | length == 0
+        fail_msg: "One or more deployments failed to roll out. Check the rollout and pod status above."
