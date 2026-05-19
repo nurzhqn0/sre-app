@@ -7,19 +7,20 @@ GitHub: <https://github.com/nurzhqn0/sre-app.git>
 Live deployment:
 
 - Direct IP: <http://209.38.220.131/>
-- Domain target: <http://sre.nurzhqn.com/>
+- Domain target: <https://sre.nurzhqn.com/>
 - Current platform: Kubernetes on k3s with Traefik Ingress
 
 Current Kubernetes deployment:
 
 - Namespace: `sre-app`
 - Cluster: single-node k3s VPS
-- Ingress: `frontend` routes `sre.nurzhqn.com` on HTTP port `80`
+- Ingress: `frontend` routes `sre.nurzhqn.com` on HTTPS port `443`
 - Frontend service: `ClusterIP` behind Traefik
+- TLS: cert-manager issues a Let's Encrypt certificate into the `frontend-tls` secret
 - Prometheus and Grafana are private and must be accessed through SSH tunnels, not public NodePorts
 - Running pods: `auth-service`, `user-service`, `product-service`, `order-service`, `payment-service`, `chat-service`, `frontend`, `postgres`, `prometheus`, `grafana`
-- Verified from VPS with `curl -I http://209.38.220.131` returning `HTTP/1.1 200 OK`
-- Verified Ingress routing with `curl -I -H 'Host: sre.nurzhqn.com' http://127.0.0.1` returning `HTTP/1.1 200 OK`
+- Verify from the VPS with `curl -I --resolve sre.nurzhqn.com:443:127.0.0.1 https://sre.nurzhqn.com/`
+- Verify externally with `curl -I https://sre.nurzhqn.com/` after DNS resolves
 - Public domain availability depends on DNS resolving `sre.nurzhqn.com` to `209.38.220.131`
 
 Check current deployment:
@@ -363,10 +364,11 @@ docker compose down
 Current live VPS:
 
 - Direct IP: <http://209.38.220.131/>
-- Domain target: <http://sre.nurzhqn.com/>
+- Domain target: <https://sre.nurzhqn.com/>
 - Server IP: `209.38.220.131`
 - Kubernetes: k3s
-- Ingress: Traefik routes HTTP port `80` to `frontend`
+- Ingress: Traefik routes HTTPS port `443` to `frontend`
+- TLS: cert-manager requests and renews a Let's Encrypt certificate
 - Status: deployed and verified with all core pods `1/1 Running`
 - DNS status: the Ingress host is configured; public DNS must point `sre.nurzhqn.com` to `209.38.220.131`
 
@@ -414,39 +416,18 @@ kubectl -n sre-app rollout restart deployment
 kubectl -n sre-app get pods
 ```
 
-Expose frontend on a VPS:
+The Ansible Kubernetes deployment installs cert-manager, applies the Let's Encrypt `ClusterIssuer`, and configures frontend TLS in `k8s/50-frontend-ingress.yaml`.
 
 ```bash
-cat > k8s/50-frontend-ingress.yaml <<'EOF'
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: frontend
-  namespace: sre-app
-spec:
-  ingressClassName: traefik
-  rules:
-    - host: sre.nurzhqn.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  number: 80
-EOF
-
-kubectl -n sre-app patch svc frontend -p '{"spec":{"type":"ClusterIP","ports":[{"name":"http","port":80,"targetPort":80}]}}'
-kubectl apply -f k8s/50-frontend-ingress.yaml
+kubectl -n sre-app get certificate
+kubectl -n sre-app describe certificate frontend-tls
+kubectl -n sre-app get secret frontend-tls
 ```
 
 Open:
 
 ```text
-http://209.38.220.131/
-http://sre.nurzhqn.com/
+https://sre.nurzhqn.com/
 ```
 
 DNS requirement:
@@ -455,7 +436,7 @@ DNS requirement:
 A record: sre.nurzhqn.com -> 209.38.220.131
 ```
 
-DigitalOcean firewall must allow inbound TCP `80`.
+DigitalOcean firewall must allow inbound TCP `80` and `443`.
 
 Verify DNS from the laptop:
 
@@ -472,7 +453,7 @@ Expected:
 Verify Ingress routing on the VPS even before DNS propagates:
 
 ```bash
-curl -I -H 'Host: sre.nurzhqn.com' http://127.0.0.1
+curl -I --resolve sre.nurzhqn.com:443:127.0.0.1 https://sre.nurzhqn.com/
 ```
 
 Do not expose Grafana or Prometheus publicly. Use SSH tunnels from your laptop:
@@ -583,14 +564,15 @@ Optional GitHub repository variables:
 | --- | --- |
 | `APP_DOMAIN` | `sre.nurzhqn.com` |
 | `DEPLOY_PATH` | `/opt/sre-app` |
+| `ACME_EMAIL` | `admin@sre.nurzhqn.com` |
 
 Final submission evidence:
 
 - screenshot of a successful CI job
 - screenshot of a successful deploy job
 - workflow logs showing Ansible rollout status
-- browser or `curl` verification for `http://sre.nurzhqn.com/`
-- fallback ingress verification with `curl -H 'Host: sre.nurzhqn.com' http://209.38.220.131/` if DNS is not ready
+- browser or `curl` verification for `https://sre.nurzhqn.com/`
+- fallback HTTPS verification with `curl --resolve sre.nurzhqn.com:443:209.38.220.131 https://sre.nurzhqn.com/` if DNS is not ready
 
 ## Important Files
 

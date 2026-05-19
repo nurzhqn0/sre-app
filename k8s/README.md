@@ -14,6 +14,24 @@ Apply everything:
 kubectl apply -f k8s/
 ```
 
+For HTTPS, install cert-manager before applying the manifests because `k8s/60-cert-manager-issuer.yaml` uses the `ClusterIssuer` CRD:
+
+```bash
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.20.2/cert-manager.yaml
+kubectl -n cert-manager rollout status deployment/cert-manager
+kubectl -n cert-manager rollout status deployment/cert-manager-cainjector
+kubectl -n cert-manager rollout status deployment/cert-manager-webhook
+kubectl apply -f k8s/
+```
+
+After deployment, check the Let's Encrypt certificate:
+
+```bash
+kubectl -n sre-app get certificate
+kubectl -n sre-app describe certificate frontend-tls
+kubectl -n sre-app get secret frontend-tls
+```
+
 Check status:
 
 ```bash

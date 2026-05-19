@@ -6,6 +6,7 @@ This directory targets a single-node VM. Keep real VM values in a local ignored 
 - SSH user: set in `ansible/inventory.local.ini`
 - deploy path: `/opt/sre-app`
 - domain: set in `ansible/inventory.local.ini`
+- Let's Encrypt email: set in `ansible/inventory.local.ini`
 
 Create `ansible/inventory.local.ini` from this template:
 
@@ -18,9 +19,10 @@ deploy_path=/opt/sre-app
 git_repo=https://github.com/nurzhqn0/sre-app.git
 git_version=main
 app_domain=YOUR_DOMAIN
+acme_email=YOUR_EMAIL
 ```
 
-`ansible/inventory.local.ini` is ignored by git so public IPs, private hostnames, users, and domains are not committed.
+`ansible/inventory.local.ini` is ignored by git so public IPs, private hostnames, users, domains, and email addresses are not committed.
 
 Do not deploy with `ansible/inventory.ini`; it intentionally contains placeholders for syntax checks and examples only.
 
@@ -45,12 +47,13 @@ The Compose playbook installs Docker, checks out the repository to `/opt/sre-app
 ansible-playbook -i ansible/inventory.local.ini ansible/k8s.yml
 ```
 
-The k3s playbook installs Docker and k3s if needed, checks out the repository, sets the ingress host, builds the app images on the VM, imports them into k3s containerd, applies `k8s/`, and prints pod/service/ingress status.
+The k3s playbook installs Docker, k3s, and cert-manager if needed, checks out the repository, sets the ingress host and Let's Encrypt email, builds the app images on the VM, imports them into k3s containerd, applies `k8s/`, and prints pod/service/ingress status.
 
 Override defaults with extra vars when needed:
 
 ```bash
 ansible-playbook -i ansible/inventory.local.ini ansible/k8s.yml \
   -e app_domain=YOUR_DOMAIN \
+  -e acme_email=YOUR_EMAIL \
   -e git_version=main
 ```

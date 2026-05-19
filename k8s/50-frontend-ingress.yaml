@@ -3,8 +3,14 @@ kind: Ingress
 metadata:
   name: frontend
   namespace: sre-app
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - sre.nurzhqn.com
+      secretName: frontend-tls
   rules:
     - host: sre.nurzhqn.com
       http:

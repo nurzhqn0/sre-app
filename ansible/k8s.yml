@@ -8,6 +8,8 @@
     repo_url: "{{ git_repo | default('https://github.com/nurzhqn0/sre-app.git') }}"
     repo_version: "{{ git_version | default('main') }}"
     ingress_domain: "{{ app_domain | default('app.example.com') }}"
+    letsencrypt_email: "{{ acme_email | default('admin@sre.nurzhqn.com') }}"
+    cert_manager_manifest_url: "https://github.com/cert-manager/cert-manager/releases/download/v1.20.2/cert-manager.yaml"
     app_deployments:
       - postgres
       - auth-service
@@ -101,6 +103,21 @@
       delay: 5
       until: kubectl_nodes.rc == 0
 
+    - name: Install or update cert-manager
+      ansible.builtin.command:
+        cmd: "kubectl apply -f {{ cert_manager_manifest_url }}"
+      register: cert_manager_apply
+      changed_when: "'created' in cert_manager_apply.stdout or 'configured' in cert_manager_apply.stdout"
+
+    - name: Wait for cert-manager deployments to roll out
+      ansible.builtin.command:
+        cmd: "kubectl -n cert-manager rollout status deployment/{{ item }} --timeout=180s"
+      loop:
+        - cert-manager
+        - cert-manager-cainjector
+        - cert-manager-webhook
+      changed_when: false
+
     - name: Create deployment directory
       ansible.builtin.file:
         path: "{{ project_root }}"
@@ -120,6 +137,18 @@
         path: "{{ project_root }}/k8s/50-frontend-ingress.yaml"
         regexp: 'host: .*'
         replace: "host: {{ ingress_domain }}"
+
+    - name: Set frontend TLS host for this VM
+      ansible.builtin.replace:
+        path: "{{ project_root }}/k8s/50-frontend-ingress.yaml"
+        regexp: '- sre\.nurzhqn\.com'
+        replace: "- {{ ingress_domain }}"
+
+    - name: Set Let's Encrypt account email
+      ansible.builtin.replace:
+        path: "{{ project_root }}/k8s/60-cert-manager-issuer.yaml"
+        regexp: 'email: .*'
+        replace: "email: {{ letsencrypt_email }}"
 
     - name: Build Docker images on the VM
       ansible.builtin.command:

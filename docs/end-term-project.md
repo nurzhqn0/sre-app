@@ -11,18 +11,19 @@ Git repository: <https://github.com/nurzhqn0/sre-app.git>
 Live deployment:
 
 - Direct IP: <http://209.38.220.131/>
-- Domain target: <http://sre.nurzhqn.com/>
+- Domain target: <https://sre.nurzhqn.com/>
 - Current platform: Kubernetes on k3s with Traefik Ingress
 
 Current Kubernetes deployment state:
 
 - namespace: `sre-app`
 - cluster: single-node k3s VPS
-- ingress: `frontend` routes `sre.nurzhqn.com` on HTTP port `80`
+- ingress: `frontend` routes `sre.nurzhqn.com` on HTTPS port `443`
+- TLS: cert-manager issues and renews a Let's Encrypt certificate in the `frontend-tls` secret
 - frontend service: internal `ClusterIP` behind Traefik
 - running pods: `auth-service`, `user-service`, `product-service`, `order-service`, `payment-service`, `chat-service`, `frontend`, `postgres`, `prometheus`, and `grafana`
-- verification: `curl -I http://209.38.220.131` returned `HTTP/1.1 200 OK` from the VPS
-- ingress verification: `curl -I -H 'Host: sre.nurzhqn.com' http://127.0.0.1` returned `HTTP/1.1 200 OK` from the VPS
+- verification: `curl -I https://sre.nurzhqn.com/` returns `HTTP/1.1 200 OK` or `HTTP/2 200` after DNS resolves
+- ingress verification before DNS propagation: `curl -I --resolve sre.nurzhqn.com:443:127.0.0.1 https://sre.nurzhqn.com/`
 - DNS requirement: public DNS must resolve `sre.nurzhqn.com` to `209.38.220.131`
 
 ## 2. Objectives
@@ -62,7 +63,7 @@ Supporting components:
 
 | Component | Internal Port | Docker Compose Access | Docker Swarm Access | Kubernetes Access | Live VPS Access |
 | --- | ---: | --- | --- | --- | --- |
-| `frontend` | `80` | `http://localhost` | `http://SERVER_IP` or `STACK_HTTP_PORT` | Traefik Ingress to `ClusterIP` service port `80` | `http://209.38.220.131/`, `http://sre.nurzhqn.com/` when DNS resolves |
+| `frontend` | `80` | `http://localhost` | `http://SERVER_IP` or `STACK_HTTP_PORT` | Traefik Ingress to `ClusterIP` service port `80` with TLS on `443` | `https://sre.nurzhqn.com/` when DNS resolves |
 | `auth-service` | `8001` | via frontend `/api/auth/` | internal overlay network | `ClusterIP` `8001` | internal only |
 | `user-service` | `8002` | via frontend `/api/users/` | internal overlay network | `ClusterIP` `8002` | internal only |
 | `product-service` | `8003` | via frontend `/api/products/` | internal overlay network | `ClusterIP` `8003` | internal only |
@@ -77,12 +78,13 @@ Supporting components:
 Live VPS firewall:
 
 - `22/tcp`: SSH
-- `80/tcp`: frontend through Traefik Ingress
+- `80/tcp`: HTTP challenge and optional redirect path through Traefik Ingress
+- `443/tcp`: HTTPS frontend through Traefik Ingress
 - Grafana and Prometheus are not exposed publicly
 
 Recommended production-style access:
 
-- expose only frontend on `80/tcp`
+- expose only frontend on `80/tcp` and `443/tcp`
 - keep Grafana and Prometheus private
 - access monitoring from the laptop through SSH tunnels:
 
@@ -181,14 +183,13 @@ kubectl -n sre-app port-forward svc/grafana 3000:3000
 
 Live VPS access:
 
-- <http://sre.nurzhqn.com/>
-- <http://209.38.220.131/>
+- <https://sre.nurzhqn.com/>
 
-The live server uses k3s and Traefik Ingress. The `frontend` service stays internal as `ClusterIP`, while HTTP port `80` is routed through `k8s/50-frontend-ingress.yaml`.
+The live server uses k3s and Traefik Ingress. The `frontend` service stays internal as `ClusterIP`, while HTTPS port `443` is routed through `k8s/50-frontend-ingress.yaml`. cert-manager uses `k8s/60-cert-manager-issuer.yaml` to request a Let's Encrypt certificate.
 
 ## 6. Infrastructure as Code
 
-Terraform files in `infra/terraform/` provision a DigitalOcean droplet and firewall. The firewall exposes SSH and frontend HTTP while keeping monitoring private for SSH tunnel access.
+Terraform files in `infra/terraform/` provision a DigitalOcean droplet and firewall. The firewall exposes SSH plus frontend HTTP/HTTPS while keeping monitoring private for SSH tunnel access.
 
 Key files:
 
@@ -247,6 +248,7 @@ Optional GitHub variables:
 | --- | --- |
 | `APP_DOMAIN` | `sre.nurzhqn.com` |
 | `DEPLOY_PATH` | `/opt/sre-app` |
+| `ACME_EMAIL` | `admin@sre.nurzhqn.com` |
 
 ## 8. SLIs and SLOs
 
@@ -408,8 +410,8 @@ GitHub Actions evidence:
 - CI job passed on the final commit.
 - Deployment job passed after CI.
 - Deployment logs show successful Ansible rollout checks.
-- `http://sre.nurzhqn.com/` returns the frontend when DNS resolves.
-- If DNS is not ready, `curl -H 'Host: sre.nurzhqn.com' http://209.38.220.131/` verifies the host-based Traefik Ingress.
+- `https://sre.nurzhqn.com/` returns the frontend when DNS resolves.
+- If DNS is not ready, `curl --resolve sre.nurzhqn.com:443:209.38.220.131 https://sre.nurzhqn.com/` verifies the host-based Traefik Ingress.
 
 Optional full local demo:
 
@@ -425,8 +427,8 @@ Use this section as the screenshot checklist for the final PDF. Replace each pla
 
 How to capture:
 
-1. Open `http://209.38.220.131/`.
-2. If DNS is ready, also open `http://sre.nurzhqn.com/`.
+1. Open `https://sre.nurzhqn.com/`.
+2. Confirm the browser shows a valid HTTPS certificate.
 3. Capture the main UI showing the application loaded.
 
 Placeholder:
@@ -485,8 +487,9 @@ How to capture:
 Run on the VPS:
 
 ```bash
-curl -I http://209.38.220.131
-curl -I -H 'Host: sre.nurzhqn.com' http://127.0.0.1
+curl -I --resolve sre.nurzhqn.com:443:127.0.0.1 https://sre.nurzhqn.com
+kubectl -n sre-app get certificate
+kubectl -n sre-app get secret frontend-tls
 ```
 
 Run from the laptop:
@@ -497,8 +500,8 @@ dig +short sre.nurzhqn.com
 
 Expected:
 
-- IP endpoint returns `HTTP/1.1 200 OK`
-- Host-header test returns `HTTP/1.1 200 OK`
+- HTTPS endpoint returns `HTTP/1.1 200 OK` or `HTTP/2 200`
+- Certificate status is ready and the `frontend-tls` secret exists
 - DNS returns `209.38.220.131` after propagation
 
 Placeholder:
