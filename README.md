@@ -553,6 +553,45 @@ Main SLOs:
 | Error rate | `<= 1%` |
 | Success rate | `>= 99%` |
 
+## CI/CD
+
+GitHub Actions workflow: `.github/workflows/ci-cd.yml`
+
+The pipeline runs on pull requests, pushes, and manual dispatch. The CI job validates the Python backend, React frontend, Docker Compose configuration, Kubernetes YAML, Ansible playbooks, and Docker image builds. The deploy job runs only after CI succeeds on `main` pushes or manual dispatch.
+
+Deployment uses the existing no-registry k3s path:
+
+1. GitHub Actions connects to the VPS over SSH.
+2. A temporary Ansible inventory is generated in the runner.
+3. `ansible/k8s.yml` checks out the exact Git commit on the VPS.
+4. Docker images are built on the VPS and imported into k3s.
+5. Kubernetes manifests are applied and rollout status is checked.
+6. The public frontend is verified with `curl`.
+
+Required GitHub repository secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `VPS_HOST` | VPS public IP, for example `209.38.220.131` |
+| `VPS_USER` | SSH user, for example `root` |
+| `VPS_SSH_PRIVATE_KEY` | Private SSH key with access to the VPS |
+| `VPS_SSH_PORT` | Optional SSH port, defaults to `22` |
+
+Optional GitHub repository variables:
+
+| Variable | Default |
+| --- | --- |
+| `APP_DOMAIN` | `sre.nurzhqn.com` |
+| `DEPLOY_PATH` | `/opt/sre-app` |
+
+Final submission evidence:
+
+- screenshot of a successful CI job
+- screenshot of a successful deploy job
+- workflow logs showing Ansible rollout status
+- browser or `curl` verification for `http://209.38.220.131/`
+- DNS verification for `http://sre.nurzhqn.com/` when the domain resolves
+
 ## Important Files
 
 | Path | Purpose |

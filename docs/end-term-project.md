@@ -224,6 +224,30 @@ ansible-playbook -i ansible/inventory.ini ansible/site.yml
 ansible-playbook -i ansible/inventory.ini ansible/k8s.yml
 ```
 
+### 7.1 CI/CD Pipeline
+
+The repository includes a GitHub Actions workflow at `.github/workflows/ci-cd.yml`.
+
+CI runs on pull requests, pushes, and manual dispatch. It validates backend syntax, frontend lint/build, Docker Compose configuration, project deployment validation, Kubernetes YAML parsing, Ansible syntax, and Docker image builds.
+
+CD runs only after CI succeeds on a `main` branch push or manual dispatch. The deployment job connects to the live VPS over SSH, creates a temporary Ansible inventory in the runner, and runs `ansible/k8s.yml`. The playbook checks out the exact Git commit on the VPS, builds images locally, imports them into k3s, applies manifests, restarts deployments, waits for rollout status, and prints workload status.
+
+Required GitHub secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `VPS_HOST` | VPS public IP |
+| `VPS_USER` | SSH user |
+| `VPS_SSH_PRIVATE_KEY` | Private SSH key for deployment |
+| `VPS_SSH_PORT` | Optional SSH port, default `22` |
+
+Optional GitHub variables:
+
+| Variable | Default |
+| --- | --- |
+| `APP_DOMAIN` | `sre.nurzhqn.com` |
+| `DEPLOY_PATH` | `/opt/sre-app` |
+
 ## 8. SLIs and SLOs
 
 SLIs:
@@ -378,6 +402,14 @@ kubectl apply --dry-run=client -f k8s/
 ansible-playbook --syntax-check ansible/site.yml
 ansible-playbook --syntax-check ansible/k8s.yml
 ```
+
+GitHub Actions evidence:
+
+- CI job passed on the final commit.
+- Deployment job passed after CI.
+- Deployment logs show successful Ansible rollout checks.
+- `http://209.38.220.131/` returns the frontend.
+- `http://sre.nurzhqn.com/` returns the frontend when DNS resolves.
 
 Optional full local demo:
 
