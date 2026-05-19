@@ -210,6 +210,18 @@
       loop: "{{ image_deployments }}"
       register: rollout_restart
       changed_when: "'restarted' in rollout_restart.stdout"
+      failed_when: false
+      retries: 3
+      delay: 10
+      until: rollout_restart.rc == 0 or 'may still be processing the request' in rollout_restart.stderr
+      when: image_import is changed
+
+    - name: Print restart status output
+      ansible.builtin.debug:
+        msg: "{{ item.item }}: rc={{ item.rc }} stdout={{ item.stdout | default('') }} stderr={{ item.stderr | default('') }}"
+      loop: "{{ rollout_restart.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item }}"
       when: image_import is changed
 
     - name: Wait for application deployments to roll out
