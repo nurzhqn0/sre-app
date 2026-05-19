@@ -129,11 +129,19 @@
       delay: 5
       until: kubectl_nodes.rc == 0
 
+    - name: Check whether cert-manager is installed
+      ansible.builtin.command:
+        cmd: kubectl get namespace cert-manager
+      register: cert_manager_namespace
+      changed_when: false
+      failed_when: false
+
     - name: Install or update cert-manager
       ansible.builtin.command:
         cmd: "kubectl apply -f {{ cert_manager_manifest_url }}"
       register: cert_manager_apply
       changed_when: "'created' in cert_manager_apply.stdout or 'configured' in cert_manager_apply.stdout"
+      when: cert_manager_namespace.rc != 0
 
     - name: Wait for cert-manager deployments to roll out
       ansible.builtin.command:
