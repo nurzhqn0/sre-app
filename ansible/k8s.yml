@@ -120,6 +120,14 @@
         INSTALL_K3S_EXEC: "--write-kubeconfig-mode 644"
       when: not k3s_binary.stat.exists
 
+    - name: Reset SSH connection before Kubernetes checks
+      ansible.builtin.meta: reset_connection
+
+    - name: Wait for SSH connection to be reusable
+      ansible.builtin.wait_for_connection:
+        timeout: 120
+        delay: 5
+
     - name: Wait for Kubernetes API to be ready
       ansible.builtin.command:
         cmd: kubectl get nodes

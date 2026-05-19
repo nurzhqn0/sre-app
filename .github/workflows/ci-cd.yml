@@ -122,7 +122,7 @@ jobs:
         run: |
           cat > ansible/inventory.ci.ini <<EOF
           [sre_demo]
-          sre-vm ansible_host=${VPS_HOST} ansible_user=${VPS_USER} ansible_port=${VPS_SSH_PORT} ansible_ssh_private_key_file=${HOME}/.ssh/sre_app_deploy_key ansible_python_interpreter=/usr/bin/python3
+          sre-vm ansible_host=${VPS_HOST} ansible_user=${VPS_USER} ansible_port=${VPS_SSH_PORT} ansible_ssh_private_key_file=${HOME}/.ssh/sre_app_deploy_key ansible_python_interpreter=/usr/bin/python3 ansible_ssh_retries=5 ansible_ssh_common_args='-o ServerAliveInterval=30 -o ServerAliveCountMax=6 -o ControlMaster=no'
 
           [sre_demo:vars]
           deploy_path=${DEPLOY_PATH}
