@@ -44,6 +44,21 @@
       ansible.builtin.setup:
 
   tasks:
+    - name: Check base dependencies on Debian hosts
+      ansible.builtin.command:
+        argv:
+          - dpkg-query
+          - -W
+          - -f=${Status}\n
+          - ca-certificates
+          - curl
+          - git
+          - python3
+      register: base_dependency_check
+      changed_when: false
+      failed_when: false
+      when: ansible_facts["os_family"] == "Debian"
+
     - name: Install base dependencies on Debian hosts
       ansible.builtin.apt:
         name:
@@ -53,7 +68,10 @@
           - python3
         state: present
         update_cache: true
+        cache_valid_time: 3600
+        lock_timeout: 120
       when: ansible_facts["os_family"] == "Debian"
+        and base_dependency_check.rc != 0
 
     - name: Check Docker CLI availability
       ansible.builtin.command:
