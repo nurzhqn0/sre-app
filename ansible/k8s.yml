@@ -179,18 +179,21 @@
         path: "{{ project_root }}/k8s/50-frontend-ingress.yaml"
         regexp: 'host: .*'
         replace: "host: {{ ingress_domain }}"
+      when: ingress_domain is defined and ingress_domain != '' and '${' not in ingress_domain
 
     - name: Set frontend TLS host for this VM
       ansible.builtin.replace:
         path: "{{ project_root }}/k8s/50-frontend-ingress.yaml"
-        regexp: '- sre\.nurzhqn\.com'
+        regexp: '- (sre\.nurzhqn\.com|k8s\.nurzhqn\.com|app\.example\.com)'
         replace: "- {{ ingress_domain }}"
+      when: ingress_domain is defined and ingress_domain != '' and '${' not in ingress_domain
 
     - name: Set Let's Encrypt account email
       ansible.builtin.replace:
         path: "{{ project_root }}/k8s/60-cert-manager-issuer.yaml"
         regexp: 'email: .*'
         replace: "email: {{ letsencrypt_email }}"
+      when: letsencrypt_email is defined and letsencrypt_email != '' and '${' not in letsencrypt_email
 
     - name: Build Docker images on the VM
       ansible.builtin.command:

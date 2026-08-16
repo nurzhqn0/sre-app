@@ -13,7 +13,7 @@ variables:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
   KUBE_NAMESPACE: "sre-app"
-  APP_DOMAIN: "${APP_DOMAIN}"
+
 
 default:
   interruptible: true
@@ -194,15 +194,27 @@ deploy:ansible:
     - ssh-keyscan -p "${VPS_SSH_PORT:-22}" "$VPS_HOST" >> ~/.ssh/known_hosts
   script:
     - |
+      DOMAIN="${APP_DOMAIN}"
+      if [ -z "$DOMAIN" ] || [ "$DOMAIN" = '${APP_DOMAIN}' ]; then
+        DOMAIN="k8s.nurzhqn.com"
+      fi
+      EMAIL="${ACME_EMAIL}"
+      if [ -z "$EMAIL" ] || [ "$EMAIL" = '${ACME_EMAIL}' ]; then
+        EMAIL="nurzhqn@gmail.com"
+      fi
+      DEPLOY_DIR="${DEPLOY_PATH}"
+      if [ -z "$DEPLOY_DIR" ] || [ "$DEPLOY_DIR" = '${DEPLOY_PATH}' ]; then
+        DEPLOY_DIR="/opt/kubernetes-app"
+      fi
       cat > ansible/inventory.gitlab.ini <<EOF
       [sre_demo]
       sre-vm ansible_host=${VPS_HOST} ansible_user=${VPS_USER:-root} ansible_port=${VPS_SSH_PORT:-22} ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_python_interpreter=/usr/bin/python3
       [sre_demo:vars]
-      deploy_path=${DEPLOY_PATH:-/opt/kubernetes-app}
+      deploy_path=${DEPLOY_DIR}
       git_repo=${CI_REPOSITORY_URL}
       git_version=${CI_COMMIT_SHA}
-      app_domain=${APP_DOMAIN:-k8s.nurzhqn.com}
-      acme_email=${ACME_EMAIL:-nurzhqn@gmail.com}
+      app_domain=${DOMAIN}
+      acme_email=${EMAIL}
       EOF
     - ansible-playbook -i ansible/inventory.gitlab.ini ansible/k8s.yml
   rules:

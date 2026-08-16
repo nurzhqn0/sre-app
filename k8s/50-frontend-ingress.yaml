@@ -9,10 +9,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - sre.nurzhqn.com
+        - k8s.nurzhqn.com
       secretName: frontend-tls
   rules:
-    - host: sre.nurzhqn.com
+    - host: k8s.nurzhqn.com
       http:
         paths:
           - path: /
