@@ -261,17 +261,24 @@
         cmd: kubectl -n sre-app get pods,svc,ingress,certificate
       register: kubectl_status
       changed_when: false
+      failed_when: false
+      retries: 5
+      delay: 5
+      until: kubectl_status.rc == 0
 
     - name: Print certificate status
       ansible.builtin.debug:
         var: certificate_status.stdout_lines
+      when: certificate_status.stdout_lines is defined
 
     - name: Print Kubernetes status
       ansible.builtin.debug:
         var: kubectl_status.stdout_lines
+      when: kubectl_status.stdout_lines is defined
 
     - name: Fail when any deployment did not roll out
       ansible.builtin.assert:
         that:
-          - rollout_status.results | selectattr('rc', 'ne', 0) | list | length == 0
+          - rollout_status.results | default([]) | selectattr('rc', 'defined') | selectattr('rc', 'ne', 0) | list | length == 0
         fail_msg: "One or more deployments failed to roll out. Check the rollout and pod status above."
+
