@@ -1,0 +1,35 @@
+# Kubespray Multi-Node Inventory Example
+# Copy this file to inventory.ini and adjust node IPs/hostnames
+
+# [all] contains all nodes in the cluster with their access configurations
+[all]
+node1 ansible_host=192.168.1.10 ip=192.168.1.10 etcd_member_name=etcd1 ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa
+node2 ansible_host=192.168.1.11 ip=192.168.1.11 etcd_member_name=etcd2 ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa
+node3 ansible_host=192.168.1.12 ip=192.168.1.12 ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa
+node4 ansible_host=192.168.1.13 ip=192.168.1.13 ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+# Master / Control Plane nodes
+[kube_control_plane]
+node1
+node2
+
+# ETCD cluster members (must be 1, 3, or 5 nodes for quorum)
+[etcd]
+node1
+node2
+node3
+
+# Worker nodes where application pods run
+[kube_node]
+node2
+node3
+node4
+
+# Calico / Flannel route reflectors
+[calico_rr]
+
+# Target cluster grouping
+[k8s_cluster:children]
+kube_control_plane
+kube_node
+calico_rr

@@ -10,6 +10,7 @@ class ServiceSettings:
     service_name: str
     port: int
     database_url: str
+    redis_url: str
     jwt_secret_key: str
     product_service_url: str
     default_chat_room: str
@@ -24,9 +25,11 @@ def get_settings() -> ServiceSettings:
             "DATABASE_URL",
             "postgresql://sre_user:sre_password@postgres:5432/sre_app",
         ),
+        redis_url=os.getenv("REDIS_URL", "redis://redis:6379/0"),
         jwt_secret_key=os.getenv("JWT_SECRET_KEY", "change-me-in-production"),
         product_service_url=os.getenv(
             "PRODUCT_SERVICE_URL", "http://product-service:8003"
         ),
         default_chat_room=os.getenv("DEFAULT_CHAT_ROOM", "operations"),
     )
+

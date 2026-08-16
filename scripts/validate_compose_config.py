@@ -18,7 +18,7 @@ APP_SERVICES = {
     "chat-service",
     "payment-service",
 }
-HEALTHCHECK_SERVICES = APP_SERVICES | {"postgres", "frontend"}
+HEALTHCHECK_SERVICES = APP_SERVICES | {"postgres", "redis", "frontend"}
 EXPECTED_RESTART_POLICY = "unless-stopped"
 ALLOWED_DATABASE_HOSTS = {"postgres"}
 REQUIRED_ALERTS = {
@@ -104,6 +104,7 @@ def validate_service_config(compose: dict[str, Any]) -> list[str]:
 
     expected_services = APP_SERVICES | {
         "postgres",
+        "redis",
         "prometheus",
         "grafana",
         "frontend",

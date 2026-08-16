@@ -129,6 +129,8 @@ spec:
           envFrom:
             - secretRef:
                 name: app-secrets
+            - configMapRef:
+                name: app-config
           readinessProbe:
             httpGet:
               path: /health

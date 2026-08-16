@@ -24,6 +24,7 @@ metadata:
   namespace: sre-app
 data:
   PRODUCT_SERVICE_URL: http://product-service:8003
+  REDIS_URL: redis://redis:6379/0
   DEFAULT_CHAT_ROOM: operations
 ---
 apiVersion: v1

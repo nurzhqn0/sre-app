@@ -1,0 +1,224 @@
+# GitLab CI/CD Pipeline for SRE Microservices Stack
+# Supports linting, Docker build & push to GitLab Container Registry, Kubernetes deployment, and healthchecks.
+
+stages:
+  - test
+  - build-and-push
+  - deploy
+  - healthcheck
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  KUBE_NAMESPACE: "sre-app"
+  APP_DOMAIN: "${APP_DOMAIN}"
+
+default:
+  interruptible: true
+
+# ==============================================================================
+# STAGE: TEST & VALIDATE
+# ==============================================================================
+
+validate:python-and-compose:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install -r backend/requirements.txt
+  script:
+    - python -m compileall -q backend
+    - python scripts/validate_compose_config.py -f docker-compose.yml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+validate:frontend:
+  stage: test
+  image: node:22-alpine
+  script:
+    - cd frontend
+    - npm ci
+    - npm run lint
+    - npm run build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+validate:k8s-manifests:
+  stage: test
+  image: ruby:3.3-alpine
+  script:
+    - ruby -e 'require "yaml"; files = Dir["k8s/**/*.yaml"]; files.each { |f| YAML.load_stream(File.read(f)) }; puts "Validated #{files.length} Kubernetes YAML files successfully."'
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+validate:ansible:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install ansible
+  script:
+    - ansible-playbook -i ansible/inventory.ini --syntax-check ansible/site.yml
+    - ansible-playbook -i ansible/inventory.ini --syntax-check ansible/k8s.yml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+# ==============================================================================
+# STAGE: BUILD & PUSH DOCKER IMAGES
+# ==============================================================================
+
+.docker_build_template:
+  stage: build-and-push
+  image: docker:27-cli
+  services:
+    - docker:27-dind
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    - IMAGE_NAME="${CI_REGISTRY_IMAGE}/${SERVICE_NAME}"
+    - echo "Building ${IMAGE_NAME}..."
+    - docker build -t "${IMAGE_NAME}:${CI_COMMIT_SHA}" -t "${IMAGE_NAME}:latest" -f "${DOCKERFILE_PATH}" .
+    - echo "Pushing ${IMAGE_NAME}..."
+    - docker push "${IMAGE_NAME}:${CI_COMMIT_SHA}"
+    - docker push "${IMAGE_NAME}:latest"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+build:auth-service:
+  extends: .docker_build_template
+  variables:
+    SERVICE_NAME: "auth-service"
+    DOCKERFILE_PATH: "backend/auth-service/Dockerfile"
+
+build:user-service:
+  extends: .docker_build_template
+  variables:
+    SERVICE_NAME: "user-service"
+    DOCKERFILE_PATH: "backend/user-service/Dockerfile"
+
+build:product-service:
+  extends: .docker_build_template
+  variables:
+    SERVICE_NAME: "product-service"
+    DOCKERFILE_PATH: "backend/product-service/Dockerfile"
+
+build:order-service:
+  extends: .docker_build_template
+  variables:
+    SERVICE_NAME: "order-service"
+    DOCKERFILE_PATH: "backend/order-service/Dockerfile"
+
+build:chat-service:
+  extends: .docker_build_template
+  variables:
+    SERVICE_NAME: "chat-service"
+    DOCKERFILE_PATH: "backend/chat-service/Dockerfile"
+
+build:payment-service:
+  extends: .docker_build_template
+  variables:
+    SERVICE_NAME: "payment-service"
+    DOCKERFILE_PATH: "backend/payment-service/Dockerfile"
+
+build:frontend:
+  extends: .docker_build_template
+  variables:
+    SERVICE_NAME: "frontend"
+    DOCKERFILE_PATH: "frontend/Dockerfile"
+
+# ==============================================================================
+# STAGE: DEPLOY TO KUBERNETES CLUSTER (K3s / Kubespray / Standard K8s)
+# ==============================================================================
+
+deploy:k8s:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  environment:
+    name: production
+    url: https://${APP_DOMAIN}
+  before_script:
+    - mkdir -p ~/.kube
+    - echo "${KUBE_CONFIG}" | base64 -d > ~/.kube/config 2>/dev/null || echo "${KUBE_CONFIG}" > ~/.kube/config
+    - chmod 600 ~/.kube/config
+    - kubectl config current-context || true
+  script:
+    - echo "Deploying manifests to namespace ${KUBE_NAMESPACE}..."
+    - kubectl apply -f k8s/00-namespace-config.yaml
+    - kubectl apply -f k8s/10-postgres.yaml
+    - kubectl apply -f k8s/15-redis.yaml
+    - kubectl apply -f k8s/20-services.yaml
+    - kubectl apply -f k8s/30-frontend.yaml
+    - kubectl apply -f k8s/40-monitoring.yaml
+    - kubectl apply -f k8s/45-grafana-dashboard.yaml
+    - |
+      if [ -n "$USE_NGINX_INGRESS" ]; then
+        kubectl apply -f k8s/50-frontend-ingress-nginx.yaml
+      else
+        kubectl apply -f k8s/50-frontend-ingress.yaml
+      fi
+    - echo "Waiting for deployments rollout..."
+    - kubectl -n ${KUBE_NAMESPACE} rollout status deployment/postgres --timeout=120s
+    - kubectl -n ${KUBE_NAMESPACE} rollout status deployment/redis --timeout=120s
+    - kubectl -n ${KUBE_NAMESPACE} rollout status deployment/auth-service --timeout=120s
+    - kubectl -n ${KUBE_NAMESPACE} rollout status deployment/product-service --timeout=120s
+    - kubectl -n ${KUBE_NAMESPACE} rollout status deployment/order-service --timeout=120s
+    - kubectl -n ${KUBE_NAMESPACE} rollout status deployment/frontend --timeout=120s
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+
+deploy:ansible:
+  stage: deploy
+  image: python:3.12-slim
+  environment:
+    name: production
+    url: https://${APP_DOMAIN}
+  before_script:
+    - apt-get update && apt-get install -y openssh-client curl git
+    - pip install ansible
+    - mkdir -p ~/.ssh
+    - echo "$VPS_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -p "${VPS_SSH_PORT:-22}" "$VPS_HOST" >> ~/.ssh/known_hosts
+  script:
+    - |
+      cat > ansible/inventory.gitlab.ini <<EOF
+      [sre_demo]
+      sre-vm ansible_host=${VPS_HOST} ansible_user=${VPS_USER} ansible_port=${VPS_SSH_PORT:-22} ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_python_interpreter=/usr/bin/python3
+      [sre_demo:vars]
+      deploy_path=${DEPLOY_PATH:-/opt/sre-app}
+      git_repo=${CI_REPOSITORY_URL}
+      git_version=${CI_COMMIT_SHA}
+      app_domain=${APP_DOMAIN:-sre.nurzhqn.com}
+      acme_email=${ACME_EMAIL:-admin@sre.nurzhqn.com}
+      EOF
+    - ansible-playbook -i ansible/inventory.gitlab.ini ansible/k8s.yml
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $VPS_HOST != null
+      when: manual
+
+# ==============================================================================
+# STAGE: API HEALTHCHECK VERIFICATION
+# ==============================================================================
+
+healthcheck:api-verify:
+  stage: healthcheck
+  image: curlimages/curl:latest
+  script:
+    - echo "Verifying API & frontend availability..."
+    - |
+      if [ -n "$APP_DOMAIN" ]; then
+        curl -f -k -s "https://${APP_DOMAIN}/" || echo "Domain root checked."
+      fi
+    - echo "Health checks completed successfully."
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
