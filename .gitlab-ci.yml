@@ -160,7 +160,7 @@ deploy:k8s:
     - kubectl apply -f k8s/45-grafana-dashboard.yaml
     - |
       if [ -n "$USE_NGINX_INGRESS" ]; then
-        kubectl apply -f k8s/50-frontend-ingress-nginx.yaml
+        kubectl apply -f k8s/optional/50-frontend-ingress-nginx.yaml
       else
         kubectl apply -f k8s/50-frontend-ingress.yaml
       fi
