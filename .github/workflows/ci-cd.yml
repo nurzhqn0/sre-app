@@ -88,9 +88,9 @@ jobs:
       VPS_USER: ${{ secrets.VPS_USER }}
       VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
       VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT != '' && secrets.VPS_SSH_PORT || '22' }}
-      APP_DOMAIN: ${{ vars.APP_DOMAIN != '' && vars.APP_DOMAIN || 'sre.nurzhqn.com' }}
-      DEPLOY_PATH: ${{ vars.DEPLOY_PATH != '' && vars.DEPLOY_PATH || '/opt/sre-app' }}
-      ACME_EMAIL: ${{ vars.ACME_EMAIL != '' && vars.ACME_EMAIL || 'admin@sre.nurzhqn.com' }}
+      APP_DOMAIN: ${{ vars.APP_DOMAIN != '' && vars.APP_DOMAIN || 'k8s.nurzhqn.com' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH != '' && vars.DEPLOY_PATH || '/opt/kubernetes-app' }}
+      ACME_EMAIL: ${{ vars.ACME_EMAIL != '' && vars.ACME_EMAIL || 'nurzhqn@gmail.com' }}
 
     steps:
       - name: Checkout repository

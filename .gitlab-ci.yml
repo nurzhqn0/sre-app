@@ -219,9 +219,7 @@ deploy:ansible:
     - ansible-playbook -i ansible/inventory.gitlab.ini ansible/k8s.yml
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $VPS_HOST != null && $VPS_HOST != ""
-      when: manual
     - if: $CI_PIPELINE_SOURCE == "web" && $VPS_HOST != null && $VPS_HOST != ""
-      when: manual
 
 # ==============================================================================
 # STAGE: API HEALTHCHECK VERIFICATION
@@ -235,9 +233,11 @@ healthcheck:api-verify:
   script:
     - echo "Verifying API & frontend availability..."
     - |
-      if [ -n "$APP_DOMAIN" ]; then
-        curl -f -k -s "https://${APP_DOMAIN}/" || echo "Domain root checked."
+      TARGET_DOMAIN="${APP_DOMAIN}"
+      if [ -z "$TARGET_DOMAIN" ] || [ "$TARGET_DOMAIN" = '${APP_DOMAIN}' ]; then
+        TARGET_DOMAIN="k8s.nurzhqn.com"
       fi
+      curl -f -k -s "https://${TARGET_DOMAIN}/" || echo "Domain checked."
     - echo "Health checks completed successfully."
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
