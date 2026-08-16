@@ -140,7 +140,9 @@ build:frontend:
 
 deploy:k8s:
   stage: deploy
-  image: bitnami/kubectl:latest
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
   environment:
     name: production
     url: https://${APP_DOMAIN}
@@ -213,7 +215,9 @@ deploy:ansible:
 
 healthcheck:api-verify:
   stage: healthcheck
-  image: curlimages/curl:latest
+  image:
+    name: curlimages/curl:latest
+    entrypoint: [""]
   script:
     - echo "Verifying API & frontend availability..."
     - |
