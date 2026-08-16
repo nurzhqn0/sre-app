@@ -60,8 +60,7 @@ jobs:
         run: python scripts/validate_compose_config.py -f docker-compose.yml
 
       - name: Validate Kubernetes YAML
-        run: |
-          ruby -e 'require "yaml"; files = Dir["k8s/**/*.yaml"]; files.each { |file| YAML.load_stream(File.read(file)) }; puts "validated " + files.length.to_s + " Kubernetes YAML files"'
+        run: python scripts/validate_k8s_manifests.py
 
       - name: Install Ansible
         run: python -m pip install ansible

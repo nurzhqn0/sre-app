@@ -48,20 +48,38 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_compose_config(files: list[str]) -> dict[str, Any]:
-    command = ["docker", "compose"]
-    for file_name in files or ["docker-compose.yml"]:
-        command.extend(["-f", file_name])
-    command.extend(["config", "--format", "json"])
+    try:
+        command = ["docker", "compose"]
+        for file_name in files or ["docker-compose.yml"]:
+            command.extend(["-f", file_name])
+        command.extend(["config", "--format", "json"])
 
-    completed = subprocess.run(
-        command,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
-        raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
-    return json.loads(completed.stdout)
+        completed = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0 and completed.stdout.strip():
+            return json.loads(completed.stdout)
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+
+    try:
+        import yaml
+    except ImportError:
+        raise RuntimeError("Neither 'docker compose' nor 'PyYAML' is available.")
+
+    merged_services: dict[str, Any] = {}
+    for file_name in files or ["docker-compose.yml"]:
+        content = Path(file_name).read_text(encoding="utf-8")
+        data = yaml.safe_load(content) or {}
+        if "services" in data and isinstance(data["services"], dict):
+            merged_services.update(data["services"])
+
+    return {"services": merged_services}
 
 
 def normalized_environment(service: dict[str, Any]) -> dict[str, str]:

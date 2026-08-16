@@ -49,9 +49,11 @@ validate:frontend:
 
 validate:k8s-manifests:
   stage: test
-  image: ruby:3.3-alpine
+  image: python:3.12-slim
+  before_script:
+    - pip install pyyaml
   script:
-    - ruby -e 'require "yaml"; files = Dir["k8s/**/*.yaml"]; files.each { |f| YAML.load_stream(File.read(f)) }; puts "Validated #{files.length} Kubernetes YAML files successfully."'
+    - python scripts/validate_k8s_manifests.py
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
