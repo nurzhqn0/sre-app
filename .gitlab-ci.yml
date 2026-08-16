@@ -174,9 +174,9 @@ deploy:k8s:
     - kubectl -n ${KUBE_NAMESPACE} rollout status deployment/order-service --timeout=120s
     - kubectl -n ${KUBE_NAMESPACE} rollout status deployment/frontend --timeout=120s
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $KUBE_CONFIG != null && $KUBE_CONFIG != ""
       when: manual
-    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "web" && $KUBE_CONFIG != null && $KUBE_CONFIG != ""
       when: manual
 
 deploy:ansible:
@@ -196,17 +196,19 @@ deploy:ansible:
     - |
       cat > ansible/inventory.gitlab.ini <<EOF
       [sre_demo]
-      sre-vm ansible_host=${VPS_HOST} ansible_user=${VPS_USER} ansible_port=${VPS_SSH_PORT:-22} ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_python_interpreter=/usr/bin/python3
+      sre-vm ansible_host=${VPS_HOST} ansible_user=${VPS_USER:-root} ansible_port=${VPS_SSH_PORT:-22} ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_python_interpreter=/usr/bin/python3
       [sre_demo:vars]
-      deploy_path=${DEPLOY_PATH:-/opt/sre-app}
+      deploy_path=${DEPLOY_PATH:-/opt/kubernetes-app}
       git_repo=${CI_REPOSITORY_URL}
       git_version=${CI_COMMIT_SHA}
-      app_domain=${APP_DOMAIN:-sre.nurzhqn.com}
-      acme_email=${ACME_EMAIL:-admin@sre.nurzhqn.com}
+      app_domain=${APP_DOMAIN:-k8s.nurzhqn.com}
+      acme_email=${ACME_EMAIL:-nurzhqn@gmail.com}
       EOF
     - ansible-playbook -i ansible/inventory.gitlab.ini ansible/k8s.yml
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $VPS_HOST != null
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $VPS_HOST != null && $VPS_HOST != ""
+      when: manual
+    - if: $CI_PIPELINE_SOURCE == "web" && $VPS_HOST != null && $VPS_HOST != ""
       when: manual
 
 # ==============================================================================
